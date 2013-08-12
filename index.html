@@ -19,6 +19,12 @@ body {
 .focus img {
   width: 700px;
 }
+.on {
+  position: absolute;
+  width: 50px;
+  height: 72px;
+  border: 1px dotted red;
+}
 </style>
 </head>
 <body>
@@ -39,11 +45,18 @@ document.body.appendChild(flow.$el);
 var focus = new Focus();
 document.body.appendChild(focus.$el);
 
+var $on = document.createElement("div");
+$on.className = "on";
+document.body.appendChild($on);
+
 flow.onclick = function(p, pos) {
     focus.setPage(p);
     focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
     focus.$el.style.top = pos[1] + H;
     focus.$el.scrollTop = 0;
+
+    $on.style.left = pos[0];
+    $on.style.top = pos[1];
 }
 
 </script>
