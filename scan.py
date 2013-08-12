@@ -33,51 +33,61 @@ def mosaic(inpaths, outpath):
         out[(i/20)*72:((i/20)+1)*72, (i%20)*50:((i%20)+1)*50] = p
     numm.np2image(out, outpath)
 
+def pdf_info(path):
+    cmd = ["identify", path]
+    print cmd
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    out = []
+    for line in stdout.split('\n'):
+        if " PDF " in line:
+            out.append(line.split(" PDF ")[0])
+    return out
+
 def scan(path, basedir):
     md5 = get_hash(path)
     outdir = os.path.join(basedir, md5[:2], md5[2:])
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    # hi-res
-    cmd = ["convert", 
-           "-background", "white",
-           "-alpha", "remove",
-           "-alpha", "off",
-           "-density", "150",
-           "-resize", "1024x",
-           path, os.path.join(outdir, "1024x.png")]
-    print cmd
-    subprocess.call(cmd)
+    info = pdf_info(path)
 
-    pages = sorted(glob.glob(os.path.join(outdir, "1024x-*.png")), key=sort_key)
+    for idx, page in enumerate(info):
+        # hi-res
+        outfile = os.path.join(outdir, "1024x-%d.jpg" % idx)
+        cmd = ["convert", 
+               "-background", "white",
+               "-alpha", "remove",
+               "-alpha", "off",
+               "-density", "150",
+               "-resize", "1024x",
+               "-quality", "75",
+               page, outfile]
+        print cmd
+        subprocess.call(cmd)
 
-    # thumbnails (1)
-    cmd = ["convert",
-           "-background", "white",
-           "-alpha", "remove",
-           "-alpha", "off",
-           "-resize", "x80",
-           "-liquid-rescale", "50x72!",
-           path, os.path.join(outdir, "50x72.png")]
-    print cmd
-    subprocess.call(cmd)
+        # thumbs
+        cmd = ["convert",
+               "-resize", "x80",
+               "-liquid-rescale", "50x72!",
+               outfile, os.path.join(outdir, "50x72-r-%d.png" % idx)]
+        print cmd
+        subprocess.call(cmd)
 
-    t1 = sorted(glob.glob(os.path.join(outdir, "50x72-*.png")), key=sort_key)
-    mosaic(t1, os.path.join(outdir, "50x72.png"))
+        cmd = ["convert", 
+               "-resize", "x200",
+               "-liquid-rescale", "50x72!",
+               outfile, os.path.join(outdir, "50x72-s-%d.png" % idx)]
+        print cmd
+        subprocess.call(cmd)
+
+
+    # generate thumbnails from rendered pages
+
+    t1 = sorted(glob.glob(os.path.join(outdir, "50x72-r-*.png")), key=sort_key)
+    mosaic(t1, os.path.join(outdir, "50x72-r.png"))
     for t in t1:
         os.unlink(t)
-
-    # thumbnails (2)
-    cmd = ["convert", 
-           "-background", "white",
-           "-alpha", "remove",
-           "-alpha", "off",
-           "-resize", "x200",
-           "-liquid-rescale", "50x72!",
-           path, os.path.join(outdir, "50x72-s.png")]
-    print cmd
-    subprocess.call(cmd)
 
     t2 = sorted(glob.glob(os.path.join(outdir, "50x72-s-*.png")), key=sort_key)
     mosaic(t2, os.path.join(outdir, "50x72-s.png"))
@@ -85,8 +95,10 @@ def scan(path, basedir):
         os.unlink(t)
 
     json.dump({"filename": os.path.basename(path),
-               "npages": len(pages)}, 
+               "npages": len(info)}, 
               open(os.path.join(outdir, "meta.json"), "w"))
+
+    print md5, len(info)
 
     return outdir
 

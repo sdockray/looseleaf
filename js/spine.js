@@ -146,5 +146,5 @@ var Focus = function() {
     this.$el.appendChild(this.$img);
 };
 Focus.prototype.setPage = function(p) {
-    this.$img.src = idpath(p.text._id) + "1024x-"+p.page+".png";
+    this.$img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
 };
