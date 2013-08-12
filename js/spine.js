@@ -19,22 +19,26 @@ var Line = function(texts) {
 
     this._loading = {};         // text._id -> page -> cb
     this._mosaics = {};         // text._id -> $img
+
+    this._hovers  = {};         // text._id -> $img
+    this._hoverback = {};         // text._id -> page -> cb
 };
 Line.prototype.render = function(ctx, start_page, npages)  {
     for(var p=start_page; p<start_page+npages; p++) {
         var that = this;
         (function(spec, dp) {
             if(spec) {
-                that.loadMosaic(spec.text, spec.page, function($img) {
-                    var sx = W * (spec.page % 20);
-                    var sy = H * Math.floor(spec.page / 20);
-                    var dx = W * (dp - start_page)
-                    console.log(spec.text._id, spec.page, sx, sy, dx);
-                    ctx.fillStyle = "red";
-                    ctx.fillRect(dx, 0, W, H);
-                    ctx.drawImage($img,
-                                  sx, sy, W, H,
-                                  dx, 0, W, H);
+                var load_fn = that.loadMosaic.bind(that);
+                if(p === that.hover) {
+                    load_fn = that.loadHoverMosaic.bind(that);
+                }
+                load_fn(spec.text, spec.page, function($img) {
+                        var sx = W * (spec.page % 20);
+                        var sy = H * Math.floor(spec.page / 20);
+                        var dx = W * (dp - start_page)
+                        ctx.drawImage($img,
+                                      sx, sy, W, H,
+                                      dx, 0, W, H);
                 });
             }
         })(this.pageToText(p), p);
@@ -51,30 +55,44 @@ Line.prototype.pageToText = function(p) {
         cur_p += this.texts[i].npages;
     }
 };
-Line.prototype.loadMosaic = function(text, page, cb) {
-    if(text._id in this._mosaics) {
-        cb(this._mosaics[text._id]);
+Line.prototype._load_img = function(path, cb) {
+    var $img = document.createElement("img");
+    $img.src = path;
+    $img.onload = function() {
+        cb($img);
+    };
+};
+Line.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
+    if(id in loaded) {
+        cb(loaded[id]);
     }
-    else if(text._id in this._loading) {
-        this._loading[text._id][page] = cb;
+    else if(id in loading) {
+        loading[id][page] = cb;
     }
     else {
-        // load!
-        console.log("load", text._id);
-        this._loading[text._id] = {};
-        var $img = document.createElement("img");
-        $img.src = idpath(text._id) + "50x72.png";
-        // $img.src = idpath(text._id) + "50x72-s.png";
-        var that = this;
-        $img.onload = function() {
-            that._mosaics[text._id] = this;
-            cb($img);
-            for(var page in that._loading[text._id]) {
-                that._loading[text._id][page]($img);
-            };
-            delete that._loading[text._id];
-        };
+        loading[id] = {};
+        loading[id][page] = cb;
+        this._load_img(path, function($img) {
+            loaded[id] = $img;
+            for(var p in loading[id]) {
+                loading[id][p]($img);
+            }
+            delete loading[id];
+        });
     }
+}
+Line.prototype.loadMosaic = function(text, page, cb) {
+    this._lazy_loader(text._id, page, idpath(text._id) + "50x72.png",
+                 this._loading,
+                 this._mosaics, cb);
+}
+Line.prototype.loadHoverMosaic = function(text, _p, cb) {
+    this._lazy_loader(text._id, -1, idpath(text._id) + "50x72-s.png",
+                 this._hovers,
+                 this._hoverback, cb);
+}
+Line.prototype.setHover = function(page) {
+    this.hover = page;
 };
 
 var Flow = function(line, width) {
@@ -94,7 +112,7 @@ var Flow = function(line, width) {
         this.line.render(ctx, i*this.ncols, this.ncols);
         this.$el.appendChild($can);
 
-        (function(l_idx) {
+        (function(l_idx, ctx) {
             $can.onclick = function(ev) {
                 var x_off = ev.clientX - this.offsetLeft;
                 that.onclick(
@@ -102,7 +120,21 @@ var Flow = function(line, width) {
                         l_idx * that.ncols + Math.floor(x_off / W)),
                     [W * Math.floor(x_off / W), l_idx * H]);
             };
-        })(i);
+
+            $can.onmousemove = function(ev) {
+                var x_off = ev.clientX - this.offsetLeft;
+                var l_page = l_idx * that.ncols + Math.floor(x_off / W);
+                that.line.setHover(l_page);
+                that.line.render(ctx, l_idx*that.ncols, that.ncols);
+            };
+
+            $can.onmouseout = function(ev) {
+                var x_off = ev.clientX - this.offsetLeft;
+                var l_page = l_idx * that.ncols + Math.floor(x_off / W);
+                that.line.setHover();
+                that.line.render(ctx, l_idx*that.ncols, that.ncols);
+            };
+        })(i, ctx);
     }
 };
 Flow.prototype.onclick = function(x) {console.log("click", x);};
@@ -113,6 +145,6 @@ var Focus = function() {
     this.$img = document.createElement("img");
     this.$el.appendChild(this.$img);
 };
-Focus.prototype.set_page = function(p) {
+Focus.prototype.setPage = function(p) {
     this.$img.src = idpath(p.text._id) + "1024x-"+p.page+".png";
 };

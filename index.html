@@ -40,7 +40,7 @@ var focus = new Focus();
 document.body.appendChild(focus.$el);
 
 flow.onclick = function(p, pos) {
-    focus.set_page(p);
+    focus.setPage(p);
     focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
     focus.$el.style.top = pos[1] + H;
     focus.$el.scrollTop = 0;
