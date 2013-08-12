@@ -82,7 +82,7 @@ Line.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
     }
 }
 Line.prototype.loadMosaic = function(text, page, cb) {
-    this._lazy_loader(text._id, page, idpath(text._id) + "50x72.png",
+    this._lazy_loader(text._id, page, idpath(text._id) + "50x72-r.png",
                  this._loading,
                  this._mosaics, cb);
 }
