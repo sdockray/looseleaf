@@ -1,5 +1,7 @@
-var W=50;
-var H=72;
+var thW=50;
+var thH=72;
+var fuW=700;
+var fuH=1000;
 var DATA_DIR = "data/txt/";
 
 function idpath(id) {
@@ -33,12 +35,12 @@ Line.prototype.render = function(ctx, start_page, npages)  {
                     load_fn = that.loadHoverMosaic.bind(that);
                 }
                 load_fn(spec.text, spec.page, function($img) {
-                        var sx = W * (spec.page % 20);
-                        var sy = H * Math.floor(spec.page / 20);
-                        var dx = W * (dp - start_page)
+                        var sx = thW * (spec.page % 20);
+                        var sy = thH * Math.floor(spec.page / 20);
+                        var dx = thW * (dp - start_page)
                         ctx.drawImage($img,
-                                      sx, sy, W, H,
-                                      dx, 0, W, H);
+                                      sx, sy, thW, thH,
+                                      dx, 0, thW, thH);
                 });
             }
         })(this.pageToText(p), p);
@@ -100,44 +102,57 @@ var Flow = function(line, width) {
 
     this.line = line;
     this.width = width;
-    this.ncols = Math.floor(width / W);
+    this.ncols = Math.floor(width / thW);
     this.nrows = Math.ceil(this.line.npages / this.ncols);
+
+    this.visible = {};          // idx -> bool
+    this.lines = [];
 
     this.$el = document.createElement("div");
     for(var i=0; i<this.nrows; i++) {
-        var $can = document.createElement("canvas");
-        $can.setAttribute("width", width);
-        $can.setAttribute("height", H);
-        var ctx = $can.getContext("2d");
-        this.line.render(ctx, i*this.ncols, this.ncols);
-        this.$el.appendChild($can);
-
-        (function(l_idx, ctx) {
-            $can.onclick = function(ev) {
-                var x_off = ev.clientX - this.offsetLeft;
-                that.onclick(
-                    that.line.pageToText(
-                        l_idx * that.ncols + Math.floor(x_off / W)),
-                    [W * Math.floor(x_off / W), l_idx * H]);
-            };
-
-            $can.onmousemove = function(ev) {
-                var x_off = ev.clientX - this.offsetLeft;
-                var l_page = l_idx * that.ncols + Math.floor(x_off / W);
-                that.line.setHover(l_page);
-                that.line.render(ctx, l_idx*that.ncols, that.ncols);
-            };
-
-            $can.onmouseout = function(ev) {
-                var x_off = ev.clientX - this.offsetLeft;
-                var l_page = l_idx * that.ncols + Math.floor(x_off / W);
-                that.line.setHover();
-                that.line.render(ctx, l_idx*that.ncols, that.ncols);
-            };
-        })(i, ctx);
+        var $line = document.createElement("div");
+        $line.className = "line";
+        this.lines.push($line);
+        this.$el.appendChild($line);
     }
 };
 Flow.prototype.onclick = function(x) {console.log("click", x);};
+Flow.prototype.drawline = function(idx) {
+    if(this.visible[idx] || idx >= this.lines.length) {
+        return;
+    }
+    this.visible[idx] = true;
+    
+    var $can = document.createElement("canvas");
+    $can.setAttribute("width", this.width);
+    $can.setAttribute("height", thH);
+    var ctx = $can.getContext("2d");
+    this.line.render(ctx, idx*this.ncols, this.ncols);
+    this.lines[idx].appendChild($can);
+
+    var that = this;
+    $can.onclick = function(ev) {
+        var x_off = ev.clientX - this.offsetLeft;
+        that.onclick(
+            that.line.pageToText(
+                idx * that.ncols + Math.floor(x_off / thW)),
+            [thW * Math.floor(x_off / thW), idx * thH]);
+    };
+
+    $can.onmousemove = function(ev) {
+        var x_off = ev.clientX - this.offsetLeft;
+        var l_page = idx * that.ncols + Math.floor(x_off / thW);
+        that.line.setHover(l_page);
+        that.line.render(ctx, idx*that.ncols, that.ncols);
+    };
+
+    $can.onmouseout = function(ev) {
+        var x_off = ev.clientX - this.offsetLeft;
+        var l_page = idx * that.ncols + Math.floor(x_off / thW);
+        that.line.setHover();
+        that.line.render(ctx, idx*that.ncols, that.ncols);
+    };
+}
 
 var Focus = function() {
     this.$el = document.createElement("div");
@@ -148,3 +163,12 @@ var Focus = function() {
 Focus.prototype.setPage = function(p) {
     this.$img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
 };
+
+function draw_visible(flow) {
+    var cur_x = document.body.scrollTop;
+    while(cur_x < document.body.scrollTop + document.body.clientHeight + thH) {
+        console.log("flow.drawline(",Math.floor(cur_x / thH));
+        flow.drawline(Math.floor(cur_x / thH));
+        cur_x += thH;
+    }
+}

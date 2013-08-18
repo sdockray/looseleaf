@@ -53,12 +53,28 @@ document.body.appendChild($on);
 flow.onclick = function(p, pos) {
     focus.setPage(p);
     focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
-    focus.$el.style.top = pos[1] + H;
+    focus.$el.style.top = pos[1] + thH;
     focus.$el.scrollTop = 0;
 
     $on.style.left = pos[0];
     $on.style.top = pos[1];
 }
+
+draw_visible(flow);
+
+var scroll_queue=0;
+window.onscroll = function() {
+    scroll_queue += 1;
+    window.setTimeout(function() {
+        scroll_queue -= 1;
+        if(scroll_queue === 0) {
+            console.log("draw visible!");
+            draw_visible(flow);
+        }
+        else {
+        }
+    }, 50);
+};
 
 </script>
 </body>
