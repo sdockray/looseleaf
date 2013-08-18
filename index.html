@@ -77,14 +77,19 @@ focus.onscroll = function(p) {
 
 draw_visible(flow);
 
-window.addEventListener("hashchange", function(ev) {
-    ev.preventDefault();
-    console.log("hc", auto_hash, Number(window.location.hash.slice(1)));
+function navigate_to_hash() {
     if(!auto_hash) {
         var p = Number(window.location.hash.slice(1));
         focus.$el.scrollTop = p * fuH;
+        // scroll body
+        document.body.scrollTop = Math.floor(p / flow.ncols) * thH;
     }
     auto_hash = false;
+}
+navigate_to_hash();
+window.addEventListener("hashchange", function(ev) {
+    ev.preventDefault();
+    navigate_to_hash()
 }, false);
 
 var scroll_queue=0;
