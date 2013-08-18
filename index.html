@@ -17,7 +17,7 @@ body {
   overflow: auto;
   overflow-x: hidden;
 }
-.focus img {
+.focus .pageframe img {
   width: 700px;
 }
 .on {
@@ -26,35 +26,43 @@ body {
   height: 72px;
   border: 1px dotted red;
 }
+.pageframe {
+  background-color: white;
+  width: 700px;
+  height: 1000px;
+}
+.line {
+  background-color: white;
+  height: 72px;
+}
 </style>
 </head>
 <body>
 <script>
 
 var texts = [
-    ["3124e4687f871666c5c37deae3df4161", 60],
-    ["a989ec600e2a9938333e7481f8adaa25", 24],
-    ["92b93ce08db7765cb6229260d6ad7c18", 84],
-    ["eee69fd03eff97594cc6b0846b24986e", 40],
-    ["f923e59edda2f3866222b665ffad4cb4", 3]].map(function(x) {
+    ['5d4d6efc38ae5c5c05111987095a43e2', 264]
+].map(function(x) {
         return new Text(x[0], x[1]);
     });
 var line = new Line(texts);
 var flow = new Flow(line, document.body.clientWidth);
 document.body.appendChild(flow.$el);
 
-var focus = new Focus();
+var focus = new Focus(line);
 document.body.appendChild(focus.$el);
 
 var $on = document.createElement("div");
 $on.className = "on";
 document.body.appendChild($on);
 
-flow.onclick = function(p, pos) {
-    focus.setPage(p);
+flow.onclick = function(p) {
+    focus.$el.scrollTop = p.absolute_page * fuH;
+}
+focus.onscroll = function(p) {
+    var pos = flow.absPageToPos(p);
     focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
     focus.$el.style.top = pos[1] + thH;
-    focus.$el.scrollTop = 0;
 
     $on.style.left = pos[0];
     $on.style.top = pos[1];
@@ -70,8 +78,6 @@ window.onscroll = function() {
         if(scroll_queue === 0) {
             console.log("draw visible!");
             draw_visible(flow);
-        }
-        else {
         }
     }, 50);
 };

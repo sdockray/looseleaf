@@ -51,8 +51,10 @@ Line.prototype.pageToText = function(p) {
     var cur_p = 0;
     for(var i=0; i<this.texts.length; i++) {
         if(cur_p + this.texts[i].npages > p) {
-            return {text: this.texts[i],
-                    page: p - cur_p};
+            return {
+                absolute_page: p,
+                text: this.texts[i],
+                page: p - cur_p};
         }
         cur_p += this.texts[i].npages;
     }
@@ -135,8 +137,7 @@ Flow.prototype.drawline = function(idx) {
         var x_off = ev.clientX - this.offsetLeft;
         that.onclick(
             that.line.pageToText(
-                idx * that.ncols + Math.floor(x_off / thW)),
-            [thW * Math.floor(x_off / thW), idx * thH]);
+                idx * that.ncols + Math.floor(x_off / thW)));
     };
 
     $can.onmousemove = function(ev) {
@@ -152,22 +153,57 @@ Flow.prototype.drawline = function(idx) {
         that.line.setHover();
         that.line.render(ctx, idx*that.ncols, that.ncols);
     };
-}
+};
+Flow.prototype.absPageToPos = function(p) {
+    return [thW * (p % this.ncols),
+            thH * Math.floor(p / this.ncols)];
+};
 
-var Focus = function() {
+var Focus = function(line) {
+    this.line = line;
+
     this.$el = document.createElement("div");
     this.$el.className = "focus";
-    this.$img = document.createElement("img");
-    this.$el.appendChild(this.$img);
+
+    this.pages = [];
+    this.visible = {};          // # -> bool
+
+    for(var i=0; i<this.line.npages; i++) {
+        var $p = document.createElement("div");
+        $p.className = "pageframe";
+        this.pages.push($p);
+        this.$el.appendChild($p);
+    }
+
+    var that = this;
+    this.$el.onscroll = function() {
+        that.drawvisible();
+        that.onscroll(that.$el.scrollTop / fuH);
+    }
+
+    this.drawvisible();
 };
-Focus.prototype.setPage = function(p) {
-    this.$img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
+Focus.prototype.drawvisible = function() {
+    var p_num = Math.floor(this.$el.scrollTop / fuH);
+    this.drawpage(p_num);
+    this.drawpage(p_num+1);
+}
+Focus.prototype.drawpage = function(p_num) {
+    if(this.visible[p_num] || p_num >= this.line.npages) {
+        return;
+    }
+    this.visible[p_num] = true;
+
+    var p = this.line.pageToText(p_num);
+    var $img = document.createElement("img");
+    $img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
+    this.pages[p_num].appendChild($img);
 };
+Focus.prototype.onscroll = function(x) {console.log("scroll", x);};
 
 function draw_visible(flow) {
     var cur_x = document.body.scrollTop;
     while(cur_x < document.body.scrollTop + document.body.clientHeight + thH) {
-        console.log("flow.drawline(",Math.floor(cur_x / thH));
         flow.drawline(Math.floor(cur_x / thH));
         cur_x += thH;
     }
