@@ -59,7 +59,14 @@ document.body.appendChild($on);
 flow.onclick = function(p) {
     focus.$el.scrollTop = p.absolute_page * fuH;
 }
+var auto_hash = false;
 focus.onscroll = function(p) {
+    var top_of_page = Math.floor(p);
+    if(top_of_page != Number(window.location.hash.slice(1))) {
+        auto_hash = true;
+        window.location.hash = top_of_page;
+    }
+
     var pos = flow.absPageToPos(p);
     focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
     focus.$el.style.top = pos[1] + thH;
@@ -69,6 +76,16 @@ focus.onscroll = function(p) {
 }
 
 draw_visible(flow);
+
+window.addEventListener("hashchange", function(ev) {
+    ev.preventDefault();
+    console.log("hc", auto_hash, Number(window.location.hash.slice(1)));
+    if(!auto_hash) {
+        var p = Number(window.location.hash.slice(1));
+        focus.$el.scrollTop = p * fuH;
+    }
+    auto_hash = false;
+}, false);
 
 var scroll_queue=0;
 window.onscroll = function() {
