@@ -1,0 +1,143 @@
+<html>
+<head>
+<title>BOOKS WITHOUT COVERS</title>
+<script src="freud.js"></script>
+<!-- <script src="inline.js"></script> -->
+<script src="spine.js"></script>
+<style>
+body {
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+}
+.focus {
+  position: absolute;
+  z-index: 50;
+  border: 1px solid red;
+  width: 700px;
+  height: 350px;
+  overflow: auto;
+  overflow-x: hidden;
+}
+.focus .pageframe img {
+  width: 700px;
+}
+.on {
+  position: absolute;
+  width: 50px;
+  height: 72px;
+  border: 1px dotted red;
+}
+.pageframe {
+  background-color: white;
+  width: 700px;
+  height: 1000px;
+}
+.line {
+  background-color: white;
+  height: 72px;
+}
+#textprogress {
+  font-weight: bold;
+  background-color: red;
+  color: white;
+}
+</style>
+</head>
+<body>
+upload pdf <input type="file" id="uploader" />
+<progress min="0" max="100" value="0" id="progress"></progress>
+<span id="textprogress"></div>
+<script>
+
+var ego = new SuperEgo();
+var line, flow, focus;
+
+var pdf_collection = new Subcollection(ego, function(x) { return x.type == "pdf"; });
+
+ego.onload = function() {
+    line = new Line(pdf_collection.items());
+    flow = new Flow(line, document.body.clientWidth);
+    document.body.appendChild(flow.$el);
+
+    focus = new Focus(line);
+    document.body.appendChild(focus.$el);
+
+    var $on = document.createElement("div");
+    $on.className = "on";
+    document.body.appendChild($on);
+
+    flow.onclick = function(p) {
+        focus.$el.scrollTop = p.absolute_page * fuH;
+    }
+    var auto_hash = false;
+    focus.onscroll = function(p) {
+        var top_of_page = Math.floor(p);
+        if(top_of_page != Number(window.location.hash.slice(1))) {
+            auto_hash = true;
+            window.location.hash = top_of_page;
+        }
+
+        var pos = flow.absPageToPos(p);
+        focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
+        focus.$el.style.top = pos[1] + thH;
+
+        $on.style.left = pos[0];
+        $on.style.top = pos[1];
+    }
+
+    draw_visible(flow);
+
+    function navigate_to_hash() {
+        if(!auto_hash) {
+            var p = Number(window.location.hash.slice(1));
+            focus.$el.scrollTop = p * fuH;
+            // scroll body
+            document.body.scrollTop = Math.floor(p / flow.ncols) * thH;
+        }
+        auto_hash = false;
+    }
+    navigate_to_hash();
+    window.addEventListener("hashchange", function(ev) {
+        ev.preventDefault();
+        navigate_to_hash()
+    }, false);
+
+    var scroll_queue=0;
+    window.onscroll = function() {
+        scroll_queue += 1;
+        window.setTimeout(function() {
+            scroll_queue -= 1;
+            if(scroll_queue === 0) {
+                console.log("draw visible!");
+                draw_visible(flow);
+            }
+        }, 50);
+    };
+
+}
+
+ego.track()
+
+var $textprogress = document.getElementById("textprogress")
+var $uploader = document.getElementById("uploader");
+$uploader.onchange = function(ev) {
+    if($uploader.files.length > 0) {
+	$textprogress.innerHTML = "UPLOADING";
+        var file = $uploader.files[0];
+        var uid = ego.get(file.name) === undefined ? file.name : undefined;
+        var outgoing = new SuperModel(ego, {"_id": uid, "type": "uploaded-pdf"});
+        outgoing.save(function() {
+            outgoing.put_file_attachment("upload", file, function(res) {
+		$textprogress.innerHTML = "PROCESSING";
+                console.log("put_file_attachment", res);
+            }, function(progress) {
+                document.getElementById("progress").value = progress*100;
+            });
+        });
+    }
+}
+
+</script>
+</body>
+</html>

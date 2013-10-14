@@ -35,7 +35,7 @@ def mosaic(inpaths, outpath):
 
 def pdf_info(path):
     cmd = ["identify", path]
-    print cmd
+    # print cmd
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     stdout, stderr = p.communicate()
     out = []
@@ -50,6 +50,13 @@ def scan(path, basedir):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    data = do_scan(path, outdir)
+
+    json.dump(data, open(os.path.join(outdir, "meta.json"), "w"))
+
+    return outdir
+
+def do_scan(path, outdir):
     info = pdf_info(path)
 
     for idx, page in enumerate(info):
@@ -63,7 +70,7 @@ def scan(path, basedir):
                "-resize", "1024x",
                "-quality", "75",
                page, outfile]
-        print cmd
+        # print cmd
         subprocess.call(cmd)
 
         # thumbs
@@ -71,14 +78,14 @@ def scan(path, basedir):
                "-resize", "x80",
                "-liquid-rescale", "50x72!",
                outfile, os.path.join(outdir, "50x72-r-%d.png" % idx)]
-        print cmd
+        # print cmd
         subprocess.call(cmd)
 
         cmd = ["convert", 
                "-resize", "x200",
                "-liquid-rescale", "50x72!",
                outfile, os.path.join(outdir, "50x72-s-%d.png" % idx)]
-        print cmd
+        # print cmd
         subprocess.call(cmd)
 
 
@@ -94,13 +101,10 @@ def scan(path, basedir):
     for t in t2:
         os.unlink(t)
 
-    json.dump({"filename": os.path.basename(path),
-               "npages": len(info)}, 
-              open(os.path.join(outdir, "meta.json"), "w"))
+    data = {"filename": os.path.basename(path),
+            "npages": len(info)}
 
-    print md5, len(info)
-
-    return outdir
+    return data
 
 if __name__=='__main__':
     import sys

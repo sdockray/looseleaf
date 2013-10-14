@@ -2,16 +2,10 @@ var thW=50;
 var thH=72;
 var fuW=700;
 var fuH=1000;
-var DATA_DIR = "data/txt/";
 
 function idpath(id) {
-    return DATA_DIR + id.slice(0, 2) + "/" + id.slice(2) + "/";
+    return "db/" + id + "/";
 }
-
-var Text = function(id, npages) {
-    this._id = id;
-    this.npages = npages;
-};
 
 var Line = function(texts) {
     this.texts = texts;
@@ -23,7 +17,7 @@ var Line = function(texts) {
     this._mosaics = {};         // text._id -> $img
 
     this._hovers  = {};         // text._id -> $img
-    this._hoverback = {};         // text._id -> page -> cb
+    this._hoverback = {};       // text._id -> page -> cb
 };
 Line.prototype.render = function(ctx, start_page, npages)  {
     for(var p=start_page; p<start_page+npages; p++) {

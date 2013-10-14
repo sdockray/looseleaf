@@ -1,0 +1,6 @@
+[submodule "freud"]
+	path = freud
+	url = git://git.numm.org/freud
+[submodule "inline"]
+	path = inline
+	url = git://git.numm.org/inline
