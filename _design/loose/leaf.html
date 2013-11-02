@@ -2,7 +2,7 @@
 <head>
 <title>BOOKS WITHOUT COVERS</title>
 <script src="freud.js"></script>
-<!-- <script src="inline.js"></script> -->
+<script src="inline.js"></script>
 <script src="spine.js"></script>
 <style>
 body {
@@ -10,8 +10,8 @@ body {
   margin: 0;
   overflow-x: hidden;
 }
-.focus {
-  position: absolute;
+.focus .box {
+  position: relative;
   z-index: 50;
   border: 1px solid red;
   width: 700px;
@@ -19,14 +19,14 @@ body {
   overflow: auto;
   overflow-x: hidden;
 }
+.focus .selection {
+  width: 2px;
+  height: 72px;
+  background-color: magenta;
+  z-index: 50;
+}
 .focus .pageframe img {
   width: 700px;
-}
-.on {
-  position: absolute;
-  width: 50px;
-  height: 72px;
-  border: 1px dotted red;
 }
 .pageframe {
   background-color: white;
@@ -67,22 +67,15 @@ var p_view = new SuperMarket(in_process, function(obj, $div) {
 $pro.appendChild(p_view.$el);
 
 ego.onload = function() {
-    line = new Line(pdf_collection.items());
-    flow = new Flow(line, document.body.clientWidth);
+    line = new LooseLine(pdf_collection.items());
+    flow = new LooseFlow(line, document.body.clientWidth);
     $loose.appendChild(flow.$el);
 
-    focus = new Focus(line);
+    focus = new LooseFocus(flow);
     $loose.appendChild(focus.$el);
 
-    var $on = document.createElement("div");
-    $on.className = "on";
-    $loose.appendChild($on);
-
-    focus.$el.style.top=-1000;
-    $on.style.top=-1000;
-
-    flow.onclick = function(p) {
-        focus.$el.scrollTop = p.absolute_page * fuH;
+    flow.onclick = function(t) {
+        focus.setTime(t);
     }
     var auto_hash = false;
     focus.onscroll = function(p) {
@@ -91,23 +84,14 @@ ego.onload = function() {
             auto_hash = true;
             window.location.hash = top_of_page;
         }
-
-        var pos = flow.absPageToPos(p);
-        focus.$el.style.left = (flow.width - focus.$el.clientWidth) * (pos[0] / flow.width);
-        focus.$el.style.top = pos[1] + thH;
-
-        $on.style.left = pos[0];
-        $on.style.top = pos[1];
     }
 
-    draw_visible(flow);
+    flow.setVisible(document.body.scrollTop, document.body.clientHeight);
 
     function navigate_to_hash() {
         if(!auto_hash) {
             var p = Number(window.location.hash.slice(1));
-            focus.$el.scrollTop = p * fuH;
-            // scroll body
-            document.body.scrollTop = Math.floor(p / flow.ncols) * thH;
+            focus.setTime(p);
         }
         auto_hash = false;
     }
@@ -123,8 +107,7 @@ ego.onload = function() {
         window.setTimeout(function() {
             scroll_queue -= 1;
             if(scroll_queue === 0) {
-                console.log("draw visible!");
-                draw_visible(flow);
+                flow.setVisible(document.body.scrollTop, document.body.clientHeight);
             }
         }, 50);
     };

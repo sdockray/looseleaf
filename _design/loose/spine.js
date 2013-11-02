@@ -7,7 +7,9 @@ function idpath(id) {
     return "db/" + id + "/";
 }
 
-var Line = function(texts) {
+var LooseLine = function(texts) {
+    Line.call(this, thH);
+
     this.texts = texts;
     this.npages = texts.reduce(function(x,y) {
         return x+y.npages;
@@ -16,7 +18,12 @@ var Line = function(texts) {
     this._loading = {};         // text._id -> page -> cb
     this._mosaics = {};         // text._id -> $img
 };
-Line.prototype.render = function(ctx, start_page, npages)  {
+LooseLine.prototype = new Line;
+LooseLine.prototype.render = function($can, px_start)  {
+    var ctx = $can.getContext("2d");
+    var start_page = Math.floor(this.px2time(px_start)); // XXX: allow starting out of phase?
+    var npages = Math.ceil($can.width / thW);
+
     for(var p=start_page; p<start_page+npages; p++) {
         var that = this;
         (function(spec, dp) {
@@ -34,7 +41,17 @@ Line.prototype.render = function(ctx, start_page, npages)  {
         })(this.pageToText(p), p);
     }
 };
-Line.prototype.pageToText = function(p) {
+// `time,' in this case, is pages through all of the documents
+LooseLine.prototype.time2px = function(t) {
+    return t * thW;
+};
+LooseLine.prototype.px2time = function(x) {
+    return x / thW;
+};
+LooseLine.prototype.getWidth = function() {
+    return this.time2px(this.npages);
+};
+LooseLine.prototype.pageToText = function(p) {
     // XXX: B-Tree?
     var cur_p = 0;
     for(var i=0; i<this.texts.length; i++) {
@@ -47,14 +64,14 @@ Line.prototype.pageToText = function(p) {
         cur_p += this.texts[i].npages;
     }
 };
-Line.prototype._load_img = function(path, cb) {
+LooseLine.prototype._load_img = function(path, cb) {
     var $img = document.createElement("img");
     $img.src = path;
     $img.onload = function() {
         cb($img);
     };
 };
-Line.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
+LooseLine.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
     if(id in loaded) {
         cb(loaded[id]);
     }
@@ -73,104 +90,89 @@ Line.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
         });
     }
 }
-Line.prototype.loadMosaic = function(text, page, cb) {
+LooseLine.prototype.loadMosaic = function(text, page, cb) {
     this._lazy_loader(text._id, page, idpath(text._id) + "50x72.jpg",
                  this._loading,
                  this._mosaics, cb);
 }
 
-var Flow = function(line, width) {
-    var that = this;
-
-    this.line = line;
-    this.width = width;
-    this.ncols = Math.floor(width / thW);
-    this.nrows = Math.ceil(this.line.npages / this.ncols);
-
-    this.visible = {};          // idx -> bool
-    this.lines = [];
-
-    this.$el = document.createElement("div");
-    for(var i=0; i<this.nrows; i++) {
-        var $line = document.createElement("div");
-        $line.className = "line";
-        this.lines.push($line);
-        this.$el.appendChild($line);
-    }
+var LooseFlow = function(line, width) {
+    Flow.call(this, line, width);
 };
-Flow.prototype.onclick = function(x) {console.log("click", x);};
-Flow.prototype.drawline = function(idx) {
-    if(this.visible[idx] || idx >= this.lines.length) {
+LooseFlow.prototype = new Flow;
+LooseFlow.prototype.getWidth = function() {
+    // round down to even number of pages
+    return thW * Math.floor(this._width / thW);
+}
+
+
+var LooseFocus = function(flow) {
+    Focus.call(this, flow);
+    this.flow = flow;
+
+    // The box will scroll through one line at a time, plus a page on
+    // either end that triggers adjustment to the next line.
+
+    this.cur_line = -1;         // Start on a page?
+
+    // XXX: keep in sync with a changing flow...
+    this.pagesperline = Math.floor(flow.getWidth() / thW);
+
+    this.box.$el.onscroll = function() {
+        var rel_p = this.box.$el.scrollTop / fuH;
+        this.setTime(this.cur_line*this.pagesperline + rel_p - 1);
+    }.bind(this);
+}
+LooseFocus.prototype = new Focus;
+LooseFocus.prototype.setTime = function(p) {
+    // `Page' is in absolute coordinates.
+    // XXX: Should use "srctime" convention
+
+    var p_idx = Math.floor(p / this.pagesperline);
+    this.setLine(p_idx);
+    
+    // Scroll to appropriate place
+    // +1 is because we have some space reserved to get to the previous line.
+    var page_offset = p - (p_idx * this.pagesperline) + 1;
+    this.box.$el.scrollTop = page_offset * fuH;
+
+    this.drawvisible();
+
+    Focus.prototype.setTime.call(this, p);
+}
+LooseFocus.prototype.setLine = function(line) {
+    if(line == this.cur_line) {
         return;
     }
-    this.visible[idx] = true;
-    
-    var $can = document.createElement("canvas");
-    $can.setAttribute("width", this.width);
-    $can.setAttribute("height", thH);
-    var ctx = $can.getContext("2d");
-    this.line.render(ctx, idx*this.ncols, this.ncols);
-    this.lines[idx].appendChild($can);
+    this.cur_line = line;
 
-    var that = this;
-    $can.onclick = function(ev) {
-        var x_off = ev.clientX - this.offsetLeft;
-        that.onclick(
-            that.line.pageToText(
-                idx * that.ncols + Math.floor(x_off / thW)));
-    };
-};
-Flow.prototype.absPageToPos = function(p) {
-    return [thW * (p % this.ncols),
-            thH * Math.floor(p / this.ncols)];
-};
+    // RESET
+    this.pages = [];            // 0 is previous page
+    this.visible = {};          // idx -> bool
+    this.box.$el.innerHTML = "";
 
-var Focus = function(line) {
-    this.line = line;
-
-    this.$el = document.createElement("div");
-    this.$el.className = "focus";
-
-    this.pages = [];
-    this.visible = {};          // # -> bool
-
-    for(var i=0; i<this.line.npages; i++) {
+    for(var i=0; i<(this.pagesperline + 2); i++) {
         var $p = document.createElement("div");
         $p.className = "pageframe";
         this.pages.push($p);
-        this.$el.appendChild($p);
+        this.box.$el.appendChild($p);
     }
-
-    var that = this;
-    this.$el.onscroll = function() {
-        that.drawvisible();
-        that.onscroll(that.$el.scrollTop / fuH);
-    }
-
-    this.drawvisible();
 };
-Focus.prototype.drawvisible = function() {
-    var p_num = Math.floor(this.$el.scrollTop / fuH);
+LooseFocus.prototype.drawvisible = function() {
+    var p = this.box.$el.scrollTop / fuH;
+    var p_num = Math.floor(p);
     this.drawpage(p_num);
     this.drawpage(p_num+1);
 }
-Focus.prototype.drawpage = function(p_num) {
-    if(this.visible[p_num] || p_num >= this.line.npages) {
+LooseFocus.prototype.drawpage = function(p_num) {
+    if(this.visible[p_num]) {
         return;
     }
     this.visible[p_num] = true;
 
-    var p = this.line.pageToText(p_num);
+    var p = this.flow.line.pageToText(this.cur_line*this.pagesperline + p_num - 1);
     var $img = document.createElement("img");
     $img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
     this.pages[p_num].appendChild($img);
 };
-Focus.prototype.onscroll = function(x) {console.log("scroll", x);};
-
-function draw_visible(flow) {
-    var cur_x = document.body.scrollTop;
-    while(cur_x < document.body.scrollTop + document.body.clientHeight + thH) {
-        flow.drawline(Math.floor(cur_x / thH));
-        cur_x += thH;
-    }
-}
+LooseFocus.prototype.onscroll = function(x) {console.log("scroll", x);};
