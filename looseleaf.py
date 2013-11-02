@@ -1,5 +1,6 @@
-from psychotherapist import CouchTherapy, log, init, get_psychotherapist_creds
+from freud.psychotherapist import CouchTherapy, log, init, get_psychotherapist_creds
 
+from couchcruft import _really_put_file_attachment, _really_set_field
 from scan import do_scan
 
 import os
@@ -23,7 +24,6 @@ else:
     exepath = '"%s" "%s"' % (sys.executable, os.path.abspath(__file__))
     execmd = [sys.executable, os.path.abspath(__file__)]
 
-
 class Looseleaf(CouchTherapy):
     def doc_updated_type_uploaded_pdf(self, db, doc):
         log("doc updated")
@@ -33,25 +33,17 @@ class Looseleaf(CouchTherapy):
             doc["type"] = "processing-pdf"
             db.save(doc)
 
-            subdir = tempfile.mkdtemp()
-            inpath = os.path.join(subdir, "upload")
-            open(inpath, 'w').write(
+            _fd, upload_path = tempfile.mkstemp(".pdf")
+            open(upload_path, 'w').write(
                 db.get_attachment(doc, "upload").read())
 
-            res = do_scan(inpath, subdir)
+            for idx, path in enumerate(do_scan(upload_path)):
+                _really_put_file_attachment(db, doc, path)
+                _really_set_field(db, doc, "npages", idx+1)
+                os.unlink(path)
+            os.unlink(upload_path)
 
-            for name in os.listdir(subdir):
-                if name != "upload":
-                    db.put_attachment(doc, open(os.path.join(subdir, name)))
-                os.unlink(os.path.join(subdir, name))
-            os.rmdir(subdir)
-
-            # Don't clobber attachments!
-            doc = db[doc["_id"]]
-
-            doc["npages"] = res["npages"]
-            doc["type"] = "pdf"
-            db.save(doc)
+            _really_set_field(db, doc, "type", "pdf")
 
 if __name__=='__main__':
     if len(sys.argv) == 2 and sys.argv[1] == "sit-down":
@@ -69,7 +61,7 @@ if __name__=='__main__':
             sys.exit(1)
     elif len(sys.argv) == 1:
         from PyQt4 import QtGui
-        from gui import get_main_window
+        from freud.gui import Office
         
         # standalone
         app = QtGui.QApplication(sys.argv)
@@ -79,8 +71,8 @@ if __name__=='__main__':
 
         p = init(basedir, exepath, name=APPNAME, port=PORT)
         creds = get_psychotherapist_creds(os.path.join(os.getenv("HOME"), ".freud", APPNAME, "conf"))
-
-        main = get_main_window(creds, port=PORT)
+        main = Office(creds, port=PORT)
+        main.show()
 
         app.exec_()
 

@@ -1,7 +1,7 @@
 var thW=50;
 var thH=72;
 var fuW=700;
-var fuH=1000;
+var fuH=1150;
 
 function idpath(id) {
     return "db/" + id + "/";
@@ -15,9 +15,6 @@ var Line = function(texts) {
 
     this._loading = {};         // text._id -> page -> cb
     this._mosaics = {};         // text._id -> $img
-
-    this._hovers  = {};         // text._id -> $img
-    this._hoverback = {};       // text._id -> page -> cb
 };
 Line.prototype.render = function(ctx, start_page, npages)  {
     for(var p=start_page; p<start_page+npages; p++) {
@@ -25,9 +22,6 @@ Line.prototype.render = function(ctx, start_page, npages)  {
         (function(spec, dp) {
             if(spec) {
                 var load_fn = that.loadMosaic.bind(that);
-                if(p === that.hover) {
-                    load_fn = that.loadHoverMosaic.bind(that);
-                }
                 load_fn(spec.text, spec.page, function($img) {
                         var sx = thW * (spec.page % 20);
                         var sy = thH * Math.floor(spec.page / 20);
@@ -80,18 +74,10 @@ Line.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
     }
 }
 Line.prototype.loadMosaic = function(text, page, cb) {
-    this._lazy_loader(text._id, page, idpath(text._id) + "50x72-r.png",
+    this._lazy_loader(text._id, page, idpath(text._id) + "50x72.jpg",
                  this._loading,
                  this._mosaics, cb);
 }
-Line.prototype.loadHoverMosaic = function(text, _p, cb) {
-    this._lazy_loader(text._id, -1, idpath(text._id) + "50x72-s.png",
-                 this._hovers,
-                 this._hoverback, cb);
-}
-Line.prototype.setHover = function(page) {
-    this.hover = page;
-};
 
 var Flow = function(line, width) {
     var that = this;
@@ -132,20 +118,6 @@ Flow.prototype.drawline = function(idx) {
         that.onclick(
             that.line.pageToText(
                 idx * that.ncols + Math.floor(x_off / thW)));
-    };
-
-    $can.onmousemove = function(ev) {
-        var x_off = ev.clientX - this.offsetLeft;
-        var l_page = idx * that.ncols + Math.floor(x_off / thW);
-        that.line.setHover(l_page);
-        that.line.render(ctx, idx*that.ncols, that.ncols);
-    };
-
-    $can.onmouseout = function(ev) {
-        var x_off = ev.clientX - this.offsetLeft;
-        var l_page = idx * that.ncols + Math.floor(x_off / thW);
-        that.line.setHover();
-        that.line.render(ctx, idx*that.ncols, that.ncols);
     };
 };
 Flow.prototype.absPageToPos = function(p) {

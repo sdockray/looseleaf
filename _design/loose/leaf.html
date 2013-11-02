@@ -31,7 +31,7 @@ body {
 .pageframe {
   background-color: white;
   width: 700px;
-  height: 1000px;
+  height: 1150;
 }
 .line {
   background-color: white;
@@ -45,27 +45,41 @@ body {
 </style>
 </head>
 <body>
+<div id="looseleaf"></div>
+<div id="process"></div>
 upload pdf <input type="file" id="uploader" />
 <progress min="0" max="100" value="0" id="progress"></progress>
 <span id="textprogress"></div>
 <script>
 
+var $loose = document.getElementById("looseleaf");
+var $pro = document.getElementById("process");
+
 var ego = new SuperEgo();
 var line, flow, focus;
 
 var pdf_collection = new Subcollection(ego, function(x) { return x.type == "pdf"; });
+var in_process = new Subcollection(ego, function(x) { return x.type == "processing-pdf"; });
+
+var p_view = new SuperMarket(in_process, function(obj, $div) {
+    $div.innerHTML = obj._id + ": (" + obj.npages + " pages)";
+});
+$pro.appendChild(p_view.$el);
 
 ego.onload = function() {
     line = new Line(pdf_collection.items());
     flow = new Flow(line, document.body.clientWidth);
-    document.body.appendChild(flow.$el);
+    $loose.appendChild(flow.$el);
 
     focus = new Focus(line);
-    document.body.appendChild(focus.$el);
+    $loose.appendChild(focus.$el);
 
     var $on = document.createElement("div");
     $on.className = "on";
-    document.body.appendChild($on);
+    $loose.appendChild($on);
+
+    focus.$el.style.top=-1000;
+    $on.style.top=-1000;
 
     flow.onclick = function(p) {
         focus.$el.scrollTop = p.absolute_page * fuH;
@@ -129,7 +143,7 @@ $uploader.onchange = function(ev) {
         var outgoing = new SuperModel(ego, {"_id": uid, "type": "uploaded-pdf"});
         outgoing.save(function() {
             outgoing.put_file_attachment("upload", file, function(res) {
-		$textprogress.innerHTML = "PROCESSING";
+		        $textprogress.innerHTML = "PROCESSING";
                 console.log("put_file_attachment", res);
             }, function(progress) {
                 document.getElementById("progress").value = progress*100;
