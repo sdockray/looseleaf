@@ -15,8 +15,7 @@ var LooseLine = function(texts) {
         return x+y.npages;
     }, 0);
 
-    this._loading = {};         // text._id -> page -> cb
-    this._mosaics = {};         // text._id -> $img
+    this._loader = new ImageLoader();
 };
 LooseLine.prototype = new Line;
 LooseLine.prototype.render = function($can, px_start)  {
@@ -28,8 +27,7 @@ LooseLine.prototype.render = function($can, px_start)  {
         var that = this;
         (function(spec, dp) {
             if(spec) {
-                var load_fn = that.loadMosaic.bind(that);
-                load_fn(spec.text, spec.page, function($img) {
+                that.loadMosaic(spec.text, function($img) {
                         var sx = thW * (spec.page % 20);
                         var sy = thH * Math.floor(spec.page / 20);
                         var dx = thW * (dp - start_page)
@@ -64,36 +62,8 @@ LooseLine.prototype.pageToText = function(p) {
         cur_p += this.texts[i].npages;
     }
 };
-LooseLine.prototype._load_img = function(path, cb) {
-    var $img = document.createElement("img");
-    $img.src = path;
-    $img.onload = function() {
-        cb($img);
-    };
-};
-LooseLine.prototype._lazy_loader = function(id, page, path, loading, loaded, cb) {
-    if(id in loaded) {
-        cb(loaded[id]);
-    }
-    else if(id in loading) {
-        loading[id][page] = cb;
-    }
-    else {
-        loading[id] = {};
-        loading[id][page] = cb;
-        this._load_img(path, function($img) {
-            loaded[id] = $img;
-            for(var p in loading[id]) {
-                loading[id][p]($img);
-            }
-            delete loading[id];
-        });
-    }
-}
-LooseLine.prototype.loadMosaic = function(text, page, cb) {
-    this._lazy_loader(text._id, page, idpath(text._id) + "50x72.jpg",
-                 this._loading,
-                 this._mosaics, cb);
+LooseLine.prototype.loadMosaic = function(text, cb) {
+    this._loader.loadImage(idpath(text._id) + "50x72.jpg", cb);
 }
 
 var LooseFlow = function(line, width) {
