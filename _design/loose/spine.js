@@ -1,5 +1,7 @@
 var thW=50;
 var thH=72;
+var boxW=700;
+var boxH=350;
 var fuW=700;
 var fuH=1150;
 
@@ -25,18 +27,18 @@ LooseLine.prototype.render = function($can, px_start)  {
 
     for(var p=start_page; p<start_page+npages; p++) {
         var that = this;
-        (function(spec, dp) {
-            if(spec) {
-                that.loadMosaic(spec.text, function($img) {
-                        var sx = thW * (spec.page % 20);
-                        var sy = thH * Math.floor(spec.page / 20);
+        (function(bookpage, dp) {
+            if(bookpage) {
+                that.loadMosaic(bookpage[0], function($img) {
+                        var sx = thW * (bookpage[1] % 20);
+                        var sy = thH * Math.floor(bookpage[1] / 20);
                         var dx = thW * (dp - start_page)
                         ctx.drawImage($img,
                                       sx, sy, thW, thH,
                                       dx, 0, thW, thH);
                 });
             }
-        })(this.pageToText(p), p);
+        })(this.getLeafAt(p), p);
     }
 };
 // `time,' in this case, is pages through all of the documents
@@ -49,15 +51,15 @@ LooseLine.prototype.px2time = function(x) {
 LooseLine.prototype.getWidth = function() {
     return this.time2px(this.npages);
 };
-LooseLine.prototype.pageToText = function(p) {
+LooseLine.prototype.getLeafNodes = function() {
+    return this.texts;
+}
+LooseLine.prototype.getLeafAt = function(p) {
     // XXX: B-Tree?
     var cur_p = 0;
     for(var i=0; i<this.texts.length; i++) {
         if(cur_p + this.texts[i].npages > p) {
-            return {
-                absolute_page: p,
-                text: this.texts[i],
-                page: p - cur_p};
+            return [this.texts[i], p - cur_p];
         }
         cur_p += this.texts[i].npages;
     }
@@ -74,11 +76,56 @@ LooseFlow.prototype.getWidth = function() {
     // round down to even number of pages
     return thW * Math.floor(this._width / thW);
 }
+// Overwrite to account for y-meaning
+LooseFlow.prototype.pt2time = function(pt) {
+    var abs_x = Math.floor(pt[1]/thH)*this.getWidth() + thW*Math.floor(pt[0] / thW);
+    return this.line.px2time(abs_x) + (pt[1]%thH)/thH;
+}
+LooseFlow.prototype.book_time2pt = function(t) {
+    var x = this.line.time2px(t);
+    return [thW * Math.floor((x % this.getWidth()) / thW),
+            this.line.getHeight() * Math.floor(x / this.getWidth()) + thH * (t % 1)];
+}
 
+var PageRange = function(flow, start_t) {
+    Marker.call(this, flow, start_t);
+    this.$el.style.position = "inherit";
+    this.duration_t = boxH / fuH;
+}
+PageRange.prototype = new Marker;
+PageRange.prototype.makeBox = function(start, height) {
+    var $box = document.createElement("div");
+    $box.className = "selbox";
+    var boxpos = this.flow.book_time2pt(start);
+    $box.style.left = boxpos[0];
+    $box.style.top = boxpos[1];
+    $box.style.width = thW;
+    $box.style.height = height * thH;
+    return $box;
+}
+PageRange.prototype.position = function() {
+    this.$el.innerHTML = "";
+    // Make rectangles to cover the range.
+    var end = this.t + this.duration_t;
+    var cur_book = this.t;
+    while(cur_book < end) {
+        var box_height = Math.min(1 - (cur_book % 1), end - cur_book);
+        console.log("makeBox", cur_book, box_height);
+        this.$el.appendChild(
+            this.makeBox(cur_book, box_height));
+        cur_book += box_height;
+    }
+}
 
 var LooseFocus = function(flow) {
     Focus.call(this, flow);
     this.flow = flow;
+
+    // Sloppy inheritence mutation!
+    this.$el.removeChild(this.sel.$el);
+    this.sel = new PageRange(flow, 0, 0);
+    this.sel.$el.className = "boxsel";
+    this.$el.appendChild(this.sel.$el);
 
     // The box will scroll through one line at a time, plus a page on
     // either end that triggers adjustment to the next line.
@@ -90,21 +137,23 @@ var LooseFocus = function(flow) {
 
     this.box.$el.onscroll = function() {
         var rel_p = this.box.$el.scrollTop / fuH;
-        this.setTime(this.cur_line*this.pagesperline + rel_p - 1);
+        this.setTime(this.cur_line*this.pagesperline + rel_p - 1, true);
     }.bind(this);
 }
 LooseFocus.prototype = new Focus;
-LooseFocus.prototype.setTime = function(p) {
+LooseFocus.prototype.setTime = function(p, effect) {
     // `Page' is in absolute coordinates.
     // XXX: Should use "srctime" convention
 
     var p_idx = Math.floor(p / this.pagesperline);
-    this.setLine(p_idx);
+    var did_set = this.setLine(p_idx);
     
-    // Scroll to appropriate place
-    // +1 is because we have some space reserved to get to the previous line.
-    var page_offset = p - (p_idx * this.pagesperline) + 1;
-    this.box.$el.scrollTop = page_offset * fuH;
+    if(did_set || !effect) {
+        // Scroll to appropriate place
+        // +1 is because we have some space reserved to get to the previous line.
+        var page_offset = p - (p_idx * this.pagesperline) + 1;
+        this.box.$el.scrollTop = page_offset * fuH;
+    }
 
     this.drawvisible();
 
@@ -127,6 +176,8 @@ LooseFocus.prototype.setLine = function(line) {
         this.pages.push($p);
         this.box.$el.appendChild($p);
     }
+
+    return true;
 };
 LooseFocus.prototype.drawvisible = function() {
     var p = this.box.$el.scrollTop / fuH;
@@ -135,14 +186,14 @@ LooseFocus.prototype.drawvisible = function() {
     this.drawpage(p_num+1);
 }
 LooseFocus.prototype.drawpage = function(p_num) {
-    if(this.visible[p_num]) {
+    if(this.visible[p_num] || !this.pages[p_num]) {
         return;
     }
     this.visible[p_num] = true;
 
-    var p = this.flow.line.pageToText(this.cur_line*this.pagesperline + p_num - 1);
+    var bookpage = this.flow.line.getLeafAt(this.cur_line*this.pagesperline + p_num - 1);
     var $img = document.createElement("img");
-    $img.src = idpath(p.text._id) + "1024x-"+p.page+".jpg";
+    $img.src = idpath(bookpage[0]._id) + "1024x-"+Math.floor(bookpage[1])+".jpg";
     this.pages[p_num].appendChild($img);
 };
 LooseFocus.prototype.onscroll = function(x) {console.log("scroll", x);};

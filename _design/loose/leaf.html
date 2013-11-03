@@ -13,17 +13,11 @@ body {
 .focus .box {
   position: relative;
   z-index: 50;
-  border: 1px solid red;
+  border: 1px solid magenta;
   width: 700px;
   height: 350px;
   overflow: auto;
   overflow-x: hidden;
-}
-.focus .selection {
-  width: 2px;
-  height: 72px;
-  background-color: magenta;
-  z-index: 50;
 }
 .focus .pageframe img {
   width: 700px;
@@ -41,6 +35,12 @@ body {
   font-weight: bold;
   background-color: red;
   color: white;
+}
+.selbox {
+  position: absolute;
+  background-color: magenta;
+  opacity: 0.5;
+  z-index: 60;
 }
 </style>
 </head>
