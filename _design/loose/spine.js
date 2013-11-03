@@ -206,7 +206,6 @@ LooseFocus.prototype.drawpage = function(p_num) {
     $img.src = idpath(bookpage[0]._id) + "1024x-"+Math.floor(bookpage[1])+".jpg";
     this.pages[p_num].appendChild($img);
 };
-LooseFocus.prototype.onscroll = function(x) {console.log("scroll", x);};
 
 
 // (borrowed & tweaked from unwind)
