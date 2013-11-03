@@ -31,6 +31,9 @@ body {
   background-color: white;
   height: 72px;
 }
+#process {
+  padding-top: 375px;
+}
 #textprogress {
   font-weight: bold;
   background-color: red;
@@ -113,19 +116,6 @@ ego.onload = function() {
     }
 
     flow.setVisible(document.body.scrollTop, document.body.clientHeight);
-
-    function navigate_to_hash() {
-        if(!auto_hash) {
-            var p = Number(window.location.hash.slice(1));
-            focus.setTime(p);
-        }
-        auto_hash = false;
-    }
-    navigate_to_hash();
-    window.addEventListener("hashchange", function(ev) {
-        ev.preventDefault();
-        navigate_to_hash()
-    }, false);
 
     var scroll_queue=0;
     window.onscroll = function() {
