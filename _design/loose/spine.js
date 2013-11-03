@@ -64,6 +64,16 @@ LooseLine.prototype.getLeafAt = function(p) {
         cur_p += this.texts[i].npages;
     }
 };
+// Get start page of book
+LooseLine.prototype.bookToPage = function(book) {
+    var cur_p = 0;
+    for(var i=0; i<this.texts.length; i++) {
+        if(book === this.texts[i]) {
+            return cur_p;
+        }
+        cur_p += this.texts[i].npages;
+    }
+};
 LooseLine.prototype.loadMosaic = function(text, cb) {
     this._loader.loadImage(idpath(text._id) + "50x72.jpg", cb);
 }
@@ -87,10 +97,11 @@ LooseFlow.prototype.book_time2pt = function(t) {
             this.line.getHeight() * Math.floor(x / this.getWidth()) + thH * (t % 1)];
 }
 
-var PageRange = function(flow, start_t) {
+var PageRange = function(flow, start_t, duration_t) {
     Marker.call(this, flow, start_t);
     this.$el.style.position = "inherit";
-    this.duration_t = boxH / fuH;
+    this.duration_t = duration_t || (boxH / fuH);
+    this.position();
 }
 PageRange.prototype = new Marker;
 PageRange.prototype.makeBox = function(start, height) {
@@ -110,7 +121,6 @@ PageRange.prototype.position = function() {
     var cur_book = this.t;
     while(cur_book < end) {
         var box_height = Math.min(1 - (cur_book % 1), end - cur_book);
-        console.log("makeBox", cur_book, box_height);
         this.$el.appendChild(
             this.makeBox(cur_book, box_height));
         cur_book += box_height;
@@ -197,3 +207,55 @@ LooseFocus.prototype.drawpage = function(p_num) {
     this.pages[p_num].appendChild($img);
 };
 LooseFocus.prototype.onscroll = function(x) {console.log("scroll", x);};
+
+
+// (borrowed & tweaked from unwind)
+var Capture = function(onword, onstart, onupdate, onabort) {
+    // Create a hidden input that insists on focus
+    this.$el = document.createElement("input");
+    this.$el.className = "hiddeninput";
+    document.body.appendChild(this.$el);
+
+    this._inprogress = false;
+
+    this.$el.focus();
+    this.$el.onblur = function(ev) {
+        ev.preventDefault();
+        window.setTimeout(function() {
+            this.$el.focus();
+        }.bind(this), 50);
+    }.bind(this);
+    if (onupdate) {
+        this.$el.oninput = function(ev) {
+            if(this._inprogress) {
+                onupdate(this.$el.value);
+            }
+        }.bind(this);
+    }
+    this.$el.onkeydown = function(ev) {
+        // console.log(ev.keyCode);
+        // if(ev.keyCode == 32 || ev.keyCode == 9 || ev.keyCode == 13) { // space, tab, enter
+        if(ev.keyCode == 13) { // enter
+            ev.preventDefault()
+            onword(this.$el.value);
+            this.abort();
+        }
+        else if(ev.keyCode == 27) { // Escape
+            ev.preventDefault();
+            this.abort();
+            if(onabort) {
+                onabort();
+            }
+        }
+        else if(!this._inprogress) {
+            this._inprogress = true;
+            if(onstart) {
+                onstart();
+            }
+        }
+    }.bind(this)
+}
+Capture.prototype.abort = function() {
+    this.$el.value = "";
+    this._inprogress = false;
+}

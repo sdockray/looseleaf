@@ -42,6 +42,12 @@ body {
   opacity: 0.5;
   z-index: 60;
 }
+.comment .selbox {
+  z-index: 40;
+  opacity: 0.3;
+  cursor: pointer;
+  background-color: yellow;
+}
 </style>
 </head>
 <body>
@@ -56,11 +62,13 @@ var $loose = document.getElementById("looseleaf");
 var $pro = document.getElementById("process");
 
 var ego = new SuperEgo();
-var line, flow, focus;
+var line, flow, focus, capture;
 
 var pdf_collection = new Subcollection(ego, function(x) { return x.type == "pdf"; });
 var in_process = new Subcollection(ego, function(x) { return x.type == "processing-pdf"; });
 
+var notes = new Subcollection(ego, function(x) { return x.type == "note"; });
+var nview;
 var p_view = new SuperMarket(in_process, function(obj, $div) {
     $div.innerHTML = obj._id + ": (" + obj.npages + " pages)";
 });
@@ -77,6 +85,24 @@ ego.onload = function() {
     flow.onclick = function(t) {
         focus.setTime(t);
     }
+
+    nview = new SuperMarket(notes, function(obj, $div) {
+        $div.innerHTML = "";
+
+        var abs_p = line.bookToPage(obj.get_foreign("source")) + obj.page;
+
+        var prange = new PageRange(flow, abs_p);
+        prange.$el.title = obj.note;
+        prange.$el.className = "comment";
+        prange.$el.onclick = function() {
+            focus.setTime(this.abs_p);
+        }.bind({abs_p: abs_p});
+
+        $div.appendChild(prange.$el);
+
+    });
+    $loose.appendChild(nview.$el);
+
     var auto_hash = false;
     focus.onscroll = function(p) {
         var top_of_page = Math.floor(p);
@@ -112,6 +138,34 @@ ego.onload = function() {
         }, 50);
     };
 
+    function update_note(note) {
+        var t = focus.getTime();
+        var bookpage = line.getLeafAt(t);
+
+        capture.cur_note.set("note", note);
+        capture.cur_note.set_foreign("source", bookpage[0]);
+        capture.cur_note.set("page", bookpage[1]);
+    }
+
+    capture = new Capture(
+        function(note) {        // finish
+            update_note(note);
+            capture.cur_note.save();
+        },
+        function() {            // start
+            console.log("START!");
+            capture.cur_note = new SuperModel(ego, {
+                "type": "note",
+                "status": "typing"});
+            update_note("");
+        },
+        function(note) {        // update
+            update_note(note);
+        },
+        function() {            // abort
+            capture.cur_note.deleteme();
+        });
+    document.body.appendChild(capture.$el);
 }
 
 ego.track()
