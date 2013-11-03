@@ -80,3 +80,10 @@ if __name__=='__main__':
         print "KILL"
         p.kill()
         p.wait()
+
+
+    elif sys.argv[1] == "headless":
+        # Subprocess CouchDB, but don't make a GUI
+        p = init(basedir, exepath, name=APPNAME, port=PORT)
+        print "%s is running on port %d" % (APPNAME, PORT)
+        p.wait()
