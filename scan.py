@@ -67,8 +67,9 @@ def do_scan(path):
 
         # thumbs
         cmd = ["convert",
-               "-resize", "x80",
-               "-liquid-rescale", "50x72!",
+               # "-resize", "x80",
+               # "-liquid-rescale", "50x72!",
+               "-resize", "50x72!",
                outfile, os.path.join(outdir, "50x72-%06d.png" % idx)]
         # print cmd
         subprocess.call(cmd)
