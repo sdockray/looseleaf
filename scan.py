@@ -2,21 +2,40 @@
 
 import glob
 import math
-import numm
+from PIL import Image
 import numpy as np
 import os
 import subprocess
 import tempfile
+
+def image2np(path):
+    "Load an image file into an array."
+    im = Image.open(path)
+    im = im.convert('RGB')
+    arr = np.asarray(im, dtype=np.uint8)
+    return arr
+
+def np2image(arr, path):
+    "Save an image array to a file."
+    assert arr.dtype == np.uint8, "nparr must be uint8"
+    if len(arr.shape) > 2 and arr.shape[2] == 3:
+        mode = 'RGB'
+    else:
+        mode = 'L'
+    im = Image.fromstring(
+        mode, (arr.shape[1], arr.shape[0]), arr.tostring())
+    im.save(path)
+
 
 def mosaic(inpaths, outpath):
     npages = len(inpaths)
     out_width = min(npages, 20) * 50
     out_height = math.ceil(npages / 20.0) * 72
     out = np.zeros((out_height, out_width, 3), dtype=np.uint8)
-    payloads = [numm.image2np(X) for X in inpaths]
+    payloads = [image2np(X) for X in inpaths]
     for i, p in enumerate(payloads):
         out[(i/20)*72:((i/20)+1)*72, (i%20)*50:((i%20)+1)*50] = p
-    numm.np2image(out, outpath)
+    np2image(out, outpath)
 
 def pdf_info(path):
     cmd = ["identify", path]
