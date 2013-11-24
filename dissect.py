@@ -45,13 +45,24 @@ def normalize_rect(rect):
         return rect
 
 # XXX: these should be percentages of the image size
-def prune_rects(rects, min_width=200, max_height=200, max_width=2000):
-    return filter(lambda X: X[1][0] > min_width and X[1][1] < max_height and X[1][0] < max_width, rects)
+def prune_rects(rects, min_width=200, min_height=20, max_height=200, max_width=2000):
+    return filter(lambda X: X[1][0] > min_width and X[1][1] < max_height and X[1][0] < max_width and X[1][1] > min_height, rects)
 
 def draw_rects(im, rects, color=(0,0,255), thickness=3):
     for r in rects:
         box = np.int32(cv2.cv.BoxPoints(r)).reshape((-1,1,2))
         cv2.drawContours(im, [box], 0, color, thickness)
+
+def cluster_columns(features, k):
+    codebook, distortion = kmeans(features, k)
+    clusters, distance = vq(features, codebook)
+
+    print "For K=%d, distortion is %f and sum distance is %f" % (k, distortion, sum(distance))
+
+    return {"codebook": codebook,
+            "distortion": distortion,
+            "clusters": clusters,
+            "distance": distance}
 
 def multicluster_columns(rects, min_clusters=1, max_clusters=20):
     # Assumes rects have been normalized
@@ -72,15 +83,8 @@ def multicluster_columns(rects, min_clusters=1, max_clusters=20):
     res = []
 
     for k in range(min_clusters, max_clusters): # XXX: not inclusive
-        codebook, distortion = kmeans(features, k)
-        clusters, distance = vq(features, codebook)
+        res.append(cluster_columns(features, k))
 
-        print "For K=%d, distortion is %f and sum distance is %f" % (k, distortion, sum(distance))
-
-        res.append({"codebook": codebook,
-                    "distortion": distortion,
-                    "clusters": clusters,
-                    "distance": distance})
     return res
 
 def random_color():
@@ -136,7 +140,7 @@ def join_boxes(boxes, x_eps=100, y_eps=150, w_eps=100):
             b1w = box1[2]-box1[0]
             b2w = box2[2]-box2[0]
             # When checking y-closeness, allow for box2 to overlap box1
-            box2_starts_after = box1[3] > box2[1]
+            box2_starts_after = box2[1] > box1[3]
             if abs(box1[0] - box2[0]) < x_eps and box2_starts_after and box2[1] - box1[3] < y_eps and abs(b1w - b2w) < w_eps:
                 box3 = merge_boxes([box1, box2])
                 # Python lacks tail-recursion, duh!
@@ -171,8 +175,11 @@ def find_columns(path_to_image):
     lines = [normalize_rect(X) for X in lines]
     lines = prune_rects(lines, min_width=im.shape[1]/5, max_width=0.9*im.shape[1])
 
-    cluster_options = multicluster_columns(lines)
-    clusters = cluster_options[-1]["clusters"]
+    features = np.array([(X[0][0] - X[1][0]/2, X[0][0] + X[1][0]/2, X[0][1]) for X in lines])
+
+    # cluster_options = multicluster_columns(lines)
+    # clusters = cluster_options[-1]["clusters"]
+    clusters = cluster_columns(features, 25)["clusters"]
 
     # lines, clusters = prune_clusters(lines, clusters)
 
@@ -183,7 +190,7 @@ def find_columns(path_to_image):
     draw_clusters(p_im, lines, clusters)
 
     boxes = bound_clusters(lines, clusters)
-    boxes = join_boxes(boxes)
+    boxes = join_boxes(boxes, x_eps=im.shape[1]/20)
 
     boxes = prune_boxes(boxes)
 
