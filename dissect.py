@@ -127,15 +127,17 @@ def prune_clusters(rects, clusters, min_lines=3):
 def bound_clusters(rects, clusters):
     return [bound_rects(np.array(rects)[clusters == X]) for X in set(clusters.tolist())]
 
-def join_boxes(boxes, x_eps=50, y_eps=150, w_eps=50):
+def join_boxes(boxes, x_eps=100, y_eps=150, w_eps=100):
     for box1 in boxes:
         for box2 in boxes:
             if box1 == box2:
                 continue
-            # Check distance between b1x1 and b2x1, as well as b1y2 and b2y1 adn the respective widths
+            # Check distance between b1x1 and b2x1, as well as b1y2 and b2y1 and the respective widths
             b1w = box1[2]-box1[0]
             b2w = box2[2]-box2[0]
-            if abs(box1[0] - box2[0]) < x_eps and abs(box1[3] - box2[1]) < y_eps and abs(b1w - b2w) < w_eps:
+            # When checking y-closeness, allow for box2 to overlap box1
+            box2_starts_after = box1[3] > box2[1]
+            if abs(box1[0] - box2[0]) < x_eps and box2_starts_after and box2[1] - box1[3] < y_eps and abs(b1w - b2w) < w_eps:
                 box3 = merge_boxes([box1, box2])
                 # Python lacks tail-recursion, duh!
                 return join_boxes(filter(lambda x: x != box1 and x != box2, boxes) + [box3], 
