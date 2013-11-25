@@ -1,6 +1,7 @@
 # Break apart a page into columns of text
 
 import cv2
+import copy
 import numpy as np
 from scipy.cluster.vq import kmeans, vq
 
@@ -25,9 +26,9 @@ def thresh(im, cutoff=30):
 def dilate(im, iterations=5):
     return cv2.dilate(im, None, iterations=iterations)
 
-def smooth(im, shape=(40,10)):#, cutoff=10):
+def smooth(im, shape=(40,10)):
     im = cv2.blur(im, shape)
-    return thresh(im)#, cutoff=cutoff)
+    return thresh(im)
 
 def contours(im):
     # c, _hierarchy = cv2.findContours(im, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -44,9 +45,79 @@ def normalize_rect(rect):
     else:
         return rect
 
+def merge_rects(r1, r2):
+    mbox = merge_boxes([rect_to_points(X) for X in [r1,r2]])
+    return (((mbox[0] + mbox[2])/2, (mbox[1] + mbox[3])/2), # (cx,cy)
+            (abs(mbox[2] - mbox[0]), abs(mbox[3] - mbox[1])), # (w,h)
+            0)#(r1[2] + r2[2]) / 2)                              # deg
+
 # XXX: these should be percentages of the image size
 def prune_rects(rects, min_width=200, min_height=20, max_height=200, max_width=2000):
     return filter(lambda X: X[1][0] > min_width and X[1][1] < max_height and X[1][0] < max_width and X[1][1] > min_height, rects)
+
+def join_horizontal_rects(rects, strange_eps=20, gap_eps=60, yh_com_eps=15):#y_eps=10, h_eps=15):
+    # Look at size of gap, similarity of y/h, and rarity of b1x2/b2x1 as signals
+    # Look for case where `box1' is to the left of `box2'
+
+    line_starts = np.array([X[0][0] - X[1][0]/2 for X in rects])
+    line_ends = np.array([X[0][0] + X[1][0]/2 for X in rects])
+
+    def strangeness_of(elem, arr, strange_percentage=0.05):
+        # How weird is it that this element is in the array
+        n_similar = sum(abs(arr - elem) < strange_eps)
+        # Anything less than strange_percentage is strange.
+        normalcy_cutoff = strange_percentage * len(arr)
+        if n_similar < normalcy_cutoff:
+            return n_similar
+        return 0
+
+    mergelist = {}              # idx (right) -> idx (left)
+
+    for l_idx, box1 in enumerate(rects):
+        p1 = rect_to_points(box1)
+        for r_idx, box2 in enumerate(rects):
+            if box1 == box2:
+                continue
+            p2 = rect_to_points(box2)
+
+            gap_size = p2[0] - p1[2]
+            if gap_size < 0 or gap_size > gap_eps:
+                continue
+
+            # y_diff = abs(box1[0][1] - box2[0][1])
+            # if y_diff > y_eps:
+            #     continue
+            # h_diff = abs(box1[1][1] - box2[1][1])
+            # if h_diff > h_eps:
+            #     continue
+            y_diff = abs(box1[0][1] - box2[0][1])
+            h_diff = abs(box1[1][1] - box2[1][1])
+            if y_diff + h_diff > yh_com_eps:
+                continue
+
+            b1x2_strange = strangeness_of(p1[2], line_ends)
+            b2x1_strange = strangeness_of(p2[0], line_starts)
+
+            if b1x2_strange > 0 and b2x1_strange > 0:
+                # merge!
+                mergelist[r_idx] = l_idx
+                break
+                
+
+    # Do the merge
+    mutable_rects = copy.deepcopy(rects) # I think deepcopy is not necessary(?)
+    for idx, rect in enumerate(mutable_rects):
+        if idx in mergelist:    # Merge left
+            cur_idx = idx
+            left_rect = None
+            # Find rect to merge with (old one may have been deleted)
+            while left_rect is None:
+                cur_idx = mergelist[cur_idx]
+                left_rect = mutable_rects[cur_idx]
+
+            mutable_rects[cur_idx] = merge_rects(rect, left_rect)
+            mutable_rects[idx] = None
+    return filter(lambda x: x is not None, mutable_rects)
 
 def draw_rects(im, rects, color=(0,0,255), thickness=3):
     for r in rects:
@@ -105,13 +176,14 @@ def merge_boxes(boxes):
     return (boundings[:,0].min(), boundings[:,1].min(), 
             boundings[:,2].max(), boundings[:,3].max())
 
+def rect_to_points(X):
+    return [X[0][0] - X[1][0]/2,
+            X[0][1] - X[1][1]/2,
+            X[0][0] + X[1][0]/2,
+            X[0][1] + X[1][1]/2]
+
 def bound_rects(rects):
-    def getPoints(X):
-        return [X[0][0] - X[1][0]/2,
-                X[0][1] - X[1][1]/2,
-                X[0][0] + X[1][0]/2,
-                X[0][1] + X[1][1]/2]
-    return merge_boxes([getPoints(X) for X in rects])
+    return merge_boxes([rect_to_points(X) for X in rects])
 
 def draw_boxes(im, boxes):
     for box in boxes:
@@ -140,11 +212,12 @@ def join_boxes(boxes, x_eps=100, y_eps=150, w_eps=100):
             b1w = box1[2]-box1[0]
             b2w = box2[2]-box2[0]
             # When checking y-closeness, allow for box2 to overlap box1
-            box2_starts_after = box2[1] > box1[3]
+            box2_starts_after = box2[1] > box1[1]
+
             if abs(box1[0] - box2[0]) < x_eps and box2_starts_after and box2[1] - box1[3] < y_eps and abs(b1w - b2w) < w_eps:
                 box3 = merge_boxes([box1, box2])
                 # Python lacks tail-recursion, duh!
-                return join_boxes(filter(lambda x: x != box1 and x != box2, boxes) + [box3], 
+                return join_boxes(filter(lambda x: x != box1 and x != box2, boxes) + [box3],
                                   x_eps=x_eps, y_eps=y_eps, w_eps=w_eps)
     # Done!
     return boxes
@@ -173,6 +246,11 @@ def find_columns(path_to_image):
     sm_ret = smoothed.copy()
     lines = wrap_contours(contours(smoothed))
     lines = [normalize_rect(X) for X in lines]
+
+    # XXX: This would be a good opportunity to micro-rotate the image if necessary
+
+    lines = join_horizontal_rects(lines)
+
     lines = prune_rects(lines, min_width=im.shape[1]/5, max_width=0.9*im.shape[1])
 
     features = np.array([(X[0][0] - X[1][0]/2, X[0][0] + X[1][0]/2, X[0][1]) for X in lines])
@@ -190,7 +268,7 @@ def find_columns(path_to_image):
     draw_clusters(p_im, lines, clusters)
 
     boxes = bound_clusters(lines, clusters)
-    boxes = join_boxes(boxes, x_eps=im.shape[1]/20)
+    boxes = join_boxes(boxes, x_eps=im.shape[1]/10, w_eps=im.shape[1]/10)
 
     boxes = prune_boxes(boxes)
 
