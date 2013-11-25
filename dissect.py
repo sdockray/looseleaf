@@ -237,17 +237,46 @@ def prune_boxes(boxes):
                     # n^3!
                     outboxes.remove(box2)
     return outboxes
-            
 
-def find_columns(path_to_image):
-    im = cv2.imread(path_to_image, 0) # greyscale
+def load_image(path_to_image):
+    return cv2.imread(path_to_image, 0) # greyscale
+
+def rotate_image(im, eps=0.1):
+    # Analyze lines to guess rotation
+    thresholded = invert(adaptive_thresh(denoise(im)))
+    smoothed = smooth(thresholded)
+    lines = wrap_contours(contours(smoothed))
+    lines = [normalize_rect(X) for X in lines]
+
+    angles = np.array([X[2] for X in lines])
+    angle = np.median(angles)
+
+    if abs(angle) < eps:
+        return im
+
+    # Thanks! http://stackoverflow.com/questions/9041681/opencv-python-rotate-image-by-x-degrees-around-specific-point
+    print "Rotating image by %f degrees" % (angle)
+    center = tuple(np.array(im.shape)/2)
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+    im = cv2.warpAffine(im, rotation_matrix, (im.shape[1], im.shape[0]),flags=cv2.INTER_LINEAR)
+
+    # Calculate how much to crop off each side
+    rads = np.deg2rad(angle)
+    tan = np.arctan(rads)
+    crop_x = abs(int(np.ceil(im.shape[0] * tan)))
+    crop_y = abs(int(np.ceil(im.shape[1] * tan)))
+
+    return im[crop_y:-crop_y,crop_x:-crop_x]
+        
+
+def find_columns(im):
+    im = rotate_image(im)
+
     thresholded = invert(adaptive_thresh(denoise(im)))
     smoothed = smooth(thresholded)
     sm_ret = smoothed.copy()
     lines = wrap_contours(contours(smoothed))
     lines = [normalize_rect(X) for X in lines]
-
-    # XXX: This would be a good opportunity to micro-rotate the image if necessary
 
     lines = join_horizontal_rects(lines)
 
