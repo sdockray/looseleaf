@@ -24,14 +24,14 @@ def np2image(arr, path):
         mode = 'L'
     im = Image.fromstring(
         mode, (arr.shape[1], arr.shape[0]), arr.tostring())
-    im.save(path)
+    im.save(path, **p)
 
 
 def mosaic(inpaths, outpath):
     npages = len(inpaths)
     out_width = min(npages, 20) * 50
     out_height = math.ceil(npages / 20.0) * 72
-    out = np.zeros((out_height, out_width, 3), dtype=np.uint8)
+    out = 255*np.ones((out_height, out_width, 3), dtype=np.uint8)
     payloads = [image2np(X) for X in inpaths]
     for i, p in enumerate(payloads):
         out[(i/20)*72:((i/20)+1)*72, (i%20)*50:((i%20)+1)*50] = p
