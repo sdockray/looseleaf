@@ -85,3 +85,10 @@ def do_scan(path):
         os.unlink(t)
 
     yield os.path.join(outdir, "50x72.jpg")
+
+if __name__=='__main__':
+    import shutil, sys
+    PATH = sys.argv[1]
+    OUTDIR=sys.argv[2]
+    for filename in do_scan(PATH):
+        shutil.move(filename, OUTDIR)
