@@ -15,7 +15,7 @@ def image2np(path):
     arr = np.asarray(im, dtype=np.uint8)
     return arr
 
-def np2image(arr, path):
+def np2image(arr, path, **p):
     "Save an image array to a file."
     assert arr.dtype == np.uint8, "nparr must be uint8"
     if len(arr.shape) > 2 and arr.shape[2] == 3:
