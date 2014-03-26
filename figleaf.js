@@ -7,7 +7,9 @@
                  page_h: 1000,
                  box_h: 300
                 }
-    $.Figleaf = function($el) {
+    $.Figleaf = function($el, basepath) {
+        this.basepath = basepath;
+
         this.$el = $el;
         this.$el.style.position = "relative";
         this.$pdf = $el.querySelector("img");
@@ -138,7 +140,7 @@
             var $div = this.page_containers[p];
             if($div.children.length == 0) {
                 var $img = document.createElement("img");
-                $img.src = "1024x-" + p + ".jpg";
+                $img.src = this.basepath + "1024x-" + p + ".jpg";
                 $img.style.width = "700";
                 $div.appendChild($img);
             }
