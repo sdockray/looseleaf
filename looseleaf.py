@@ -1,89 +1,142 @@
-from freud.psychotherapist import CouchTherapy, log, init, get_psychotherapist_creds
+import cyst
+import gs
 
-from couchcruft import _really_put_file_attachment, _really_set_field
-from scan import do_scan
+from freud.carousel import Carousel, HobbyHorse, valid_id
+from freud.grease import valid_filename, get_ddocname
 
 import os
-import sys
-import tempfile
 
-APPNAME = "looseleaf"
-PORT = 5989
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+from twisted.web.server import Site
 
-# Grr... boilerplate
-# Hard to abstract because of the __file__ crap
-# Maybe an `exec` is in order?
-if getattr(sys, 'frozen', False):
-    # we are running in a |PyInstaller| bundle
-    basedir = sys._MEIPASS
-    exepath = '"%s"' % (sys.executable)
-    execmd = [sys.executable]
-else:
-    # we are running in a normal Python environment
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    exepath = '"%s" "%s"' % (sys.executable, os.path.abspath(__file__))
-    execmd = [sys.executable, os.path.abspath(__file__)]
+class PdfPage(cyst.Insist):
+    def __init__(self, H, pdf, pageno, cachedir):
+        self.H = H
+        self.pdf = pdf
+        self.pageno = pageno
+        cyst.Insist.__init__(self, os.path.join(cachedir, "x%d-%d.jpg" % (H, pageno)))
 
-class Looseleaf(CouchTherapy):
-    def doc_updated_type_uploaded_pdf(self, db, doc):
-        log("doc updated")
-        if "upload" in doc.get("_attachments", {}):
+    def serialize_computation(self, outpath):
+        fname = self.pdf.dump_to_height(h=self.H, start=self.pageno, end=self.pageno+1)[0]
+        os.rename(fname, outpath)
 
-            # prevent update-loops
-            doc["type"] = "processing-pdf"
-            db.save(doc)
+class PdfDerivatives(Resource):
+    def __init__(self, pdfpath, cacheroot):
+        self.pdf = gs.Pdf(pdfpath)
+        self.cacheroot = cacheroot
+        if not os.path.exists(cacheroot):
+            os.makedirs(cacheroot)
 
-            _fd, upload_path = tempfile.mkstemp(".pdf")
-            open(upload_path, 'w').write(
-                db.get_attachment(doc, "upload").read())
+        Resource.__init__(self)
 
-            for idx, path in enumerate(do_scan(upload_path)):
-                _really_put_file_attachment(db, doc, path)
-                _really_set_field(db, doc, "npages", idx+1)
-                os.unlink(path)
-            os.unlink(upload_path)
+        # Create lazy resources for derivatives
+        for sz_name, h in [("small", 128), ("med", 1024), ("large", 2048)]:
+            for p_no in range(self.pdf.npages):
+                pp = PdfPage(h, self.pdf, p_no, self.cacheroot)
+                self.putChild("%s-%d.jpg" % (sz_name, p_no), pp)
 
-            _really_set_field(db, doc, "type", "pdf")
+class LibraryHorse(HobbyHorse):
+    def __init__(self, srcdir, *a, **kw):
+        self._derivs = {}       # id -> PdfDerivatives
+        self._deriv_resource = Resource()
+
+        HobbyHorse.__init__(self, *a, **kw)
+
+        self.putChild("_pdf_derivs", self._deriv_resource)
+
+        self.link_code(srcdir)
+
+    def link_code(self, srcdir):
+        ddocname = get_ddocname(srcdir)
+        if ddocname in self.docs:
+            ddoc = self.docs[ddocname]
+        else:
+            ddoc = self.create_doc({"_id": ddocname})
+
+        for fname in os.listdir(srcdir):
+            if valid_filename(fname) and fname not in ddoc.doc.get("_attachments", {}):
+                ddoc.link_attachment(os.path.join(srcdir, fname))
+
+
+    def _serve_doc(self, docid):
+        HobbyHorse._serve_doc(self, docid)
+
+        doc = self._all_docs[docid]
+        if doc.get("type", "pdf"):
+            pdfs = [X for X in doc.get("_attachments", {}).keys() if X.endswith(".pdf")]
+            if len(pdfs) > 0:
+                pdfname = pdfs[0]
+
+                if docid not in self._derivs:
+                    self._derivs[docid] = PdfDerivatives(
+                        os.path.join(self.dbpath, docid, pdfname),
+                        os.path.join(self.carousel.CACHEROOT, self.dbname, docid))
+                    self._deriv_resource.putChild(docid, self._derivs[docid])
+
+                    # Add PDF metadata to document
+                    change = False
+                    for k,v in self._derivs[docid].pdf.meta.items():
+                        if doc.get(k) != v:
+                            doc[k] = v
+                            change = True
+                    if change:
+                        # Push a notification out
+                        self._change(doc)
+
+class LooseCarousel(Carousel):
+    def __init__(self, dbdir, srcdir):
+        self.CACHEROOT = os.path.join(dbdir, "_cache")
+        self.SRCDIR = srcdir
+        Carousel.__init__(self, dbdir)
+
+    def _serve_db(self, dbname):
+        # TODO: Better Carousel hooks for overridden subclasses
+        self.dbs[dbname] = LibraryHorse(self.SRCDIR, self, os.path.join(self.datadir, dbname))
+        self.putChild(dbname, self.dbs[dbname])
+
+    @classmethod
+    def fromdirectory(cls, indir, dbdir, srcdir, copy=False):
+        care = cls(dbdir, srcdir)
+        dbname = os.path.basename(os.path.normpath(indir))
+        db = care.create_db(dbname)
+        for fname in [X for X in os.listdir(indir) if X.endswith(".pdf") and valid_id(X)]:
+            print "adding pdf", fname
+            fullpath = os.path.join(indir, fname)
+            if not os.path.isdir(fullpath) and fname not in db.docs:
+                doc = {"_id": fname,
+                       "type": "pdf"}
+                doc = db.create_doc(doc)
+                if copy:
+                    doc.put_attachment(open(fullpath))#, filename=fname)
+                else:
+                    doc.link_attachment(fullpath)
+        return care
 
 if __name__=='__main__':
-    if len(sys.argv) == 2 and sys.argv[1] == "sit-down":
-        log("looseleaf is running inside of couch")
-        ll = Looseleaf()
+    import sys
 
-        try:
-            ll.run_forever()
-        except Exception, err:
-            import traceback
-            for line in traceback.format_exc().split('\n'):
-                log(line)
-            import time
-            time.sleep(20)
-            sys.exit(1)
-    elif len(sys.argv) == 1:
-        from PyQt4 import QtGui
-        from freud.gui import Office
-        
-        # standalone
-        app = QtGui.QApplication(sys.argv)
-        app.setApplicationName(APPNAME)
+    WEB_SRC = "_design/loose"
 
-        print "BASEDIR", basedir
+    dbdir  = sys.argv[1]
 
-        p = init(basedir, exepath, name=APPNAME, port=PORT)
-        creds = get_psychotherapist_creds(os.path.join(os.getenv("HOME"), ".freud", APPNAME, "conf"))
-        main = Office(creds, port=PORT)
-        main.show()
+    if len(sys.argv) == 3:
+        pdfdir = sys.argv[2]
+        care = LooseCarousel.fromdirectory(pdfdir, dbdir, WEB_SRC)
+    else:
+        care = LooseCarousel(dbdir, WEB_SRC)
 
-        app.exec_()
+    subdbs = care.dbs.values()
+    if len(subdbs) == 0:
+        defaultdb = care.create_db("looseleaf")
+    else:
+        defaultdb = subdbs[0]
+    root = defaultdb.docs[WEB_SRC].rewrite_resource
 
-        # Kill couch on-quit
-        print "KILL"
-        p.kill()
-        p.wait()
-
-
-    elif sys.argv[1] == "headless":
-        # Subprocess CouchDB, but don't make a GUI
-        p = init(basedir, exepath, name=APPNAME, port=PORT)
-        print "%s is running on port %d" % (APPNAME, PORT)
-        p.wait()
+    site = Site(root)
+    PORT = 5989
+    reactor.listenTCP(PORT, site)
+    print "http://localhost:%d" % (PORT)
+    import webbrowser
+    webbrowser.open_new_tab("http://localhost:%d" % (PORT))
+    reactor.run()

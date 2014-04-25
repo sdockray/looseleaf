@@ -1,0 +1,84 @@
+<html>
+<head>
+<title>BOOKS WITHOUT COVERS</title>
+<script src="freud.js"></script>
+<style>
+body {
+  padding: 0;
+  margin: 0;
+}
+.pdfpages {
+  display: inline;
+}
+.med {
+  display: block;
+  text-align: center;
+  background-color: #ccc;
+}
+.med img {
+  height: 800px;
+}
+</style>
+</head>
+<body>
+<div id="looseleaf"></div>
+<div id="process"></div>
+upload pdf <input type="file" id="uploader" multiple="true" />
+<progress min="0" max="100" value="0" id="progress"></progress>
+<script>
+
+var $loose = document.getElementById("looseleaf");
+var $pro = document.getElementById("process");
+
+var ego = new SuperEgo();
+ego.track();
+
+var pdf_collection = new Subcollection(ego, function(x) { 
+    return x.type == "pdf" && x.npages; 
+});
+
+// Real simple, now... let's show the pages
+var pdf_market = new SuperMarket(pdf_collection, function(obj, $div) {
+    $div.innerHTML = "";
+    $div.className = "pdfpages";
+    for(var i=0; i<obj.npages; i++) {
+        var $i = document.createElement("img");
+        $i.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/small-" + i + ".jpg");
+        (function(i, $i) {
+            $i.onclick = function() {
+                var $med = document.createElement("div");
+                $med.className = "med";
+                var $imed = document.createElement("img");
+                $imed.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/med-" + i + ".jpg");
+                $med.appendChild($imed);
+                $div.insertBefore($med, $i);
+                $div.removeChild($i);
+            }
+        })(i, $i);
+        $div.appendChild($i);
+    }
+}, "div", function(x,y) { return x._id > y._id ? 1 : -1; });
+$loose.appendChild(pdf_market.$el);
+
+var $textprogress = document.getElementById("textprogress")
+var $uploader = document.getElementById("uploader");
+$uploader.onchange = function(ev) {
+    if($uploader.files.length > 0) {
+        for(var i=0; i<$uploader.files.length; i++) {
+            var file = $uploader.files[i];
+            var uid = ego.get(file.name) === undefined ? file.name : undefined;
+            var outgoing = new SuperModel(ego, {"_id": uid, "type": "pdf"});
+            outgoing.save(function() {
+                this.outgoing.put_file_attachment("upload.pdf", this.file, function(res) {
+                    console.log("put_file_attachment", res);
+                }, function(progress) {
+                    document.getElementById("progress").value = progress*100;
+                });
+            }.bind({outgoing: outgoing, file: file}));
+        }
+    }
+}
+
+</script>
+</body>
+</html>
