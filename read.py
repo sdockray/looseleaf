@@ -41,7 +41,7 @@ def process_page(im, pdfpath):
     page = hocr.Page()
     for b in boxes:
         print "BOX", b
-        c_im = im[b[1]:b[3],b[0]:b[2]]
+        c_im = im[max(0,b[1]):b[3],max(0,b[0]):b[2]]
         c_text = hocr.parse_hocr(get_hocr(c_im))
         if(len(c_text) > 0):
             page.addColumn(c_text, b[0], b[1])

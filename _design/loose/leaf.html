@@ -25,7 +25,7 @@ body {
 .pageframe {
   background-color: white;
   width: 700px;
-  height: 1150;
+  height: 920px;
 }
 .line {
   background-color: white;
@@ -61,7 +61,7 @@ body {
 <body>
 <div id="looseleaf"></div>
 <div id="process"></div>
-upload pdf <input type="file" id="uploader" />
+upload pdf <input type="file" id="uploader" multiple="true" />
 <progress min="0" max="100" value="0" id="progress"></progress>
 <span id="textprogress"></div>
 <script>
@@ -161,17 +161,19 @@ var $uploader = document.getElementById("uploader");
 $uploader.onchange = function(ev) {
     if($uploader.files.length > 0) {
 	$textprogress.innerHTML = "UPLOADING";
-        var file = $uploader.files[0];
-        var uid = ego.get(file.name) === undefined ? file.name : undefined;
-        var outgoing = new SuperModel(ego, {"_id": uid, "type": "uploaded-pdf"});
-        outgoing.save(function() {
-            outgoing.put_file_attachment("upload", file, function(res) {
-		        $textprogress.innerHTML = "PROCESSING";
-                console.log("put_file_attachment", res);
-            }, function(progress) {
-                document.getElementById("progress").value = progress*100;
-            });
-        });
+        for(var i=0; i<$uploader.files.length; i++) {
+            var file = $uploader.files[i];
+            var uid = ego.get(file.name) === undefined ? file.name : undefined;
+            var outgoing = new SuperModel(ego, {"_id": uid, "type": "uploaded-pdf"});
+            outgoing.save(function() {
+                this.outgoing.put_file_attachment("upload", this.file, function(res) {
+		            $textprogress.innerHTML = "PROCESSING";
+                    console.log("put_file_attachment", res);
+                }, function(progress) {
+                    document.getElementById("progress").value = progress*100;
+                });
+            }.bind({outgoing: outgoing, file: file}));
+        }
     }
 }
 

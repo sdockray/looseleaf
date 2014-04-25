@@ -173,7 +173,7 @@ def merge_boxes(boxes):
     if len(boxes) == 0:
         return []
     boundings = np.array(boxes)
-    return (boundings[:,0].min(), boundings[:,1].min(), 
+    return (boundings[:,0].min(), boundings[:,1].min(),
             boundings[:,2].max(), boundings[:,3].max())
 
 def rect_to_points(X):
@@ -280,7 +280,7 @@ def find_columns(im):
 
     lines = join_horizontal_rects(lines)
 
-    lines = prune_rects(lines, min_width=im.shape[1]/5, max_width=0.9*im.shape[1])
+    lines = prune_rects(lines, min_width=im.shape[1]/7, max_width=0.9*im.shape[1])
 
     features = np.array([(X[0][0] - X[1][0]/2, X[0][0] + X[1][0]/2, X[0][1]) for X in lines])
 
@@ -304,5 +304,3 @@ def find_columns(im):
     draw_boxes(p_im, boxes)
 
     return im, thresholded, sm_ret, p_im, boxes
-
-# draw_rects(d2, wrap_contours(contours((smooth(invert(thresh(im4)), shape=(40,10), cutoff=30)))))

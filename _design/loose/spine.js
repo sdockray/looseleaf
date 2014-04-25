@@ -3,7 +3,7 @@ var thH=72;
 var boxW=700;
 var boxH=350;
 var fuW=700;
-var fuH=1150;
+var fuH=920;
 
 function idpath(id) {
     return "db/" + id + "/";
