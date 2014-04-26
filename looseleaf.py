@@ -58,6 +58,27 @@ class LibraryHorse(HobbyHorse):
             if valid_filename(fname) and fname not in ddoc.doc.get("_attachments", {}):
                 ddoc.link_attachment(os.path.join(srcdir, fname))
 
+    def _create_derivative_resource_async(self, docid, pdfname):
+        self._derivs[docid] = PdfDerivatives(
+            os.path.join(self.dbpath, docid, pdfname),
+            os.path.join(self.carousel.CACHEROOT, self.dbname, docid))
+
+        reactor.callFromThread(
+            self._with_derivative_resource_sync, docid)
+
+    def _with_derivative_resource_sync(self, docid):
+        self._deriv_resource.putChild(docid, self._derivs[docid])
+
+        # Add PDF metadata to document
+        change = False
+        doc = self._all_docs[docid]
+        for k,v in self._derivs[docid].pdf.meta.items():
+            if doc.get(k) != v:
+                doc[k] = v
+                change = True
+        if change:
+            # Push a notification out
+            self._change(doc)
 
     def _serve_doc(self, docid):
         HobbyHorse._serve_doc(self, docid)
@@ -69,20 +90,9 @@ class LibraryHorse(HobbyHorse):
                 pdfname = pdfs[0]
 
                 if docid not in self._derivs:
-                    self._derivs[docid] = PdfDerivatives(
-                        os.path.join(self.dbpath, docid, pdfname),
-                        os.path.join(self.carousel.CACHEROOT, self.dbname, docid))
-                    self._deriv_resource.putChild(docid, self._derivs[docid])
-
-                    # Add PDF metadata to document
-                    change = False
-                    for k,v in self._derivs[docid].pdf.meta.items():
-                        if doc.get(k) != v:
-                            doc[k] = v
-                            change = True
-                    if change:
-                        # Push a notification out
-                        self._change(doc)
+                    reactor.callInThread(
+                        self._create_derivative_resource_async,
+                        docid, pdfname)
 
 class LooseCarousel(Carousel):
     def __init__(self, dbdir, srcdir):
