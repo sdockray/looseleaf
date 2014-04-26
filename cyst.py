@@ -30,7 +30,7 @@ class Insist(Resource):
                 reactor.callInThread(self.desist)
             return NOT_DONE_YET
 
-    def _nevermind(self, req):
+    def _nevermind(self, _err, req):
         req.cancel()
         self.reqs_waiting.remove(req)
 
