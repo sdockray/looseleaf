@@ -137,6 +137,6 @@ if __name__=='__main__':
     PORT = 5989
     reactor.listenTCP(PORT, site)
     print "http://localhost:%d" % (PORT)
-    import webbrowser
-    webbrowser.open_new_tab("http://localhost:%d" % (PORT))
+    # import webbrowser
+    # webbrowser.open_new_tab("http://localhost:%d" % (PORT))
     reactor.run()
