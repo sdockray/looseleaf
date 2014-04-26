@@ -50,6 +50,11 @@ var pdf_market = new SuperMarket(pdf_collection, function(obj, $div) {
                 $med.className = "med";
                 var $imed = document.createElement("img");
                 $imed.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/med-" + i + ".jpg");
+                $imed.onclick = function() {
+                    $imed.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/large-" + i + ".jpg");
+                    $imed.style.height = 1600;
+                    $imed.onclick = undefined;
+                }
                 $med.appendChild($imed);
                 $div.insertBefore($med, $i);
                 $div.removeChild($i);
