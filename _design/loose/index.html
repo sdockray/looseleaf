@@ -40,6 +40,7 @@ var pdf_market = new SuperMarket(pdf_collection, function(obj, $div) {
     $div.className = "pdfpages";
     for(var i=0; i<obj.npages; i++) {
         var $i = document.createElement("img");
+        $i.style.height = 80;
         $i.src = ego.db + "_pdf_derivs/" + obj._id + "/small-" + i + ".jpg";
 
         (function(i, $i) {
