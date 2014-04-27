@@ -31,7 +31,6 @@ class Insist(Resource):
             return NOT_DONE_YET
 
     def _nevermind(self, _err, req):
-        req.cancel()
         self.reqs_waiting.remove(req)
 
     def desist(self):

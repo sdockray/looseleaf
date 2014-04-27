@@ -31,7 +31,8 @@ var $loose = document.getElementById("looseleaf");
 var $pro = document.getElementById("process");
 
 var ego = new SuperEgo();
-ego.track();
+ego.connect();
+//ego.track();
 
 var pdf_collection = new Subcollection(ego, function(x) { 
     return x.type == "pdf" && x.npages; 
