@@ -10,13 +10,9 @@ body {
 .pdfpages {
   display: inline;
 }
-.med {
-  display: block;
-  text-align: center;
-  background-color: #ccc;
-}
-.med img {
-  height: 800px;
+img {
+  transition-property: width, height;
+  transition-duration: 0.5s;
 }
 </style>
 </head>
@@ -44,21 +40,21 @@ var pdf_market = new SuperMarket(pdf_collection, function(obj, $div) {
     $div.className = "pdfpages";
     for(var i=0; i<obj.npages; i++) {
         var $i = document.createElement("img");
-        $i.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/small-" + i + ".jpg");
+        $i.style.height = 80;
+        $i.src = ego.db + "_pdf_derivs/" + obj._id + "/small-" + i + ".jpg";
+
         (function(i, $i) {
             $i.onclick = function() {
-                var $med = document.createElement("div");
-                $med.className = "med";
-                var $imed = document.createElement("img");
-                $imed.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/med-" + i + ".jpg");
-                $imed.onclick = function() {
-                    $imed.setAttribute("src", ego.db + "_pdf_derivs/" + obj._id + "/large-" + i + ".jpg");
-                    $imed.style.height = 1600;
-                    $imed.onclick = undefined;
+                //$fr.className = "med frame";
+                $i.style.height = 800;
+                $i.src = ego.db + "_pdf_derivs/" + obj._id + "/med-" + i + ".jpg";
+                $i.onclick = function() {
+                    $i.src =  ego.db + "_pdf_derivs/" + obj._id + "/large-" + i + ".jpg";
+                    $i.style.height = 1600;
+                    $i.onclick = function() {
+                        window.location = ego.db + "_pdf_derivs/" + obj._id + "/large-" + i + ".jpg";
+                    };
                 }
-                $med.appendChild($imed);
-                $div.insertBefore($med, $i);
-                $div.removeChild($i);
             }
         })(i, $i);
         $div.appendChild($i);
