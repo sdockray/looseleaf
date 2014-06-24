@@ -144,7 +144,7 @@ if __name__=='__main__':
     root = defaultdb.docs[WEB_SRC].rewrite_resource
 
     site = Site(root)
-    PORT = 5989
+    PORT = 6989
     reactor.listenTCP(PORT, site, interface="0.0.0.0")
     print "http://localhost:%d" % (PORT)
     # import webbrowser

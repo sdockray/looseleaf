@@ -91,6 +91,7 @@ class Pdf:
 
         subprocess.call(["gs", "-q",
                          "-dBATCH", "-dSAFER", "-dNOPAUSE", "-dNOPROMPT",
+                         "-dUseCropBox",
                          "-dMaxBitmap=500000000",
                          "-dAlignToPixels=0", "-dGridFitTT=2",
                          "-sDEVICE=%s" % (codec), "-dTextAlphaBits=4", "-dGraphicsAlphaBits=4",
