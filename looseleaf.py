@@ -65,7 +65,7 @@ class PdfDerivatives(Resource):
         for sz_name, h in [("small", 128), ("med", 1024), ("large", 2048)]:
             for p_no in range(self.pdf.npages):
                 pp = PdfPage(h, self.pdf, p_no, self.cacheroot)
-                self.putChild("%s-%d.jpg" % (sz_name, p_no), pp)
+                self.putChild("x%d-%d.jpg" % (h, p_no), pp)
 
 class LibraryDatabase(seatbelt.Database):
     def __init__(self, *a, **kw):
