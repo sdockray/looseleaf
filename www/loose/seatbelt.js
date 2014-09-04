@@ -1,0 +1,1 @@
+../../seatbelt/static/seatbelt.js
