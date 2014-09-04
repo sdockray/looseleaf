@@ -1,0 +1,176 @@
+<html>
+<head>
+<title>BOOKS WITHOUT COVERS</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/> 
+<script src="seatbelt.js"></script>
+<script src="inline.js"></script>
+<script src="spine.js"></script>
+<style>
+body {
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+}
+.focus .box {
+  position: relative;
+  z-index: 50;
+  border: 1px solid magenta;
+  width: 700px;
+  height: 350px;
+  overflow: auto;
+  overflow-x: hidden;
+}
+.focus .pageframe img {
+  width: 700px;
+}
+.pageframe {
+  background-color: white;
+  width: 700px;
+  height: 920px;
+}
+.line {
+  background-color: white;
+  height: 72px;
+}
+#process {
+  padding-top: 375px;
+}
+#textprogress {
+  font-weight: bold;
+  background-color: red;
+  color: white;
+}
+.selbox {
+  position: absolute;
+  background-color: magenta;
+  opacity: 0.5;
+  z-index: 60;
+}
+.comment .selbox {
+  z-index: 40;
+  opacity: 0.3;
+  cursor: pointer;
+  background-color: yellow;
+}
+.hiddeninput {
+  position: fixed;
+  right: -200px;
+  top: 0;
+}
+</style>
+</head>
+<body>
+<div id="looseleaf"></div>
+<div id="process"></div>
+upload pdf <input type="file" id="uploader" multiple="true" />
+<progress min="0" max="100" value="0" id="progress"></progress>
+<span id="textprogress"></div>
+<script>
+
+var $loose = document.getElementById("looseleaf");
+var $pro = document.getElementById("process");
+
+var ego = new SuperEgo();
+var line, flow, focus, capture;
+
+var pdf_collection = new Subcollection(ego, function(x) { return x.type == "pdf"; });
+
+var notes = new Subcollection(ego, function(x) { return x.type == "note"; });
+var nview;
+
+ego.onload = function() {
+    line = new LooseLine(pdf_collection.items());
+    flow = new LooseFlow(line, document.body.clientWidth);
+    $loose.appendChild(flow.$el);
+
+    focus = new LooseFocus(flow);
+    $loose.appendChild(focus.$el);
+
+    flow.onclick = function(t) {
+        focus.setTime(t);
+    }
+
+    nview = new SuperMarket(notes, function(obj, $div) {
+        $div.innerHTML = "";
+
+        var abs_p = line.bookToPage(obj.get_foreign("source")) + obj.page;
+
+        var prange = new PageRange(flow, abs_p);
+        prange.$el.title = obj.note;
+        prange.$el.className = "comment";
+        prange.$el.onclick = function() {
+            focus.setTime(this.abs_p);
+        }.bind({abs_p: abs_p});
+
+        $div.appendChild(prange.$el);
+
+    });
+    $loose.appendChild(nview.$el);
+
+    flow.setVisible(document.body.scrollTop, document.body.clientHeight);
+
+    var scroll_queue=0;
+    window.onscroll = function() {
+        scroll_queue += 1;
+        window.setTimeout(function() {
+            scroll_queue -= 1;
+            if(scroll_queue === 0) {
+                flow.setVisible(document.body.scrollTop, document.body.clientHeight);
+            }
+        }, 50);
+    };
+
+    function update_note(note) {
+        var t = focus.getTime();
+        var bookpage = line.getLeafAt(t);
+
+        capture.cur_note.set("note", note);
+        capture.cur_note.set_foreign("source", bookpage[0]);
+        capture.cur_note.set("page", bookpage[1]);
+    }
+
+    capture = new Capture(
+        function(note) {        // finish
+            update_note(note);
+            capture.cur_note.save();
+        },
+        function() {            // start
+            console.log("START!");
+            capture.cur_note = new SuperModel(ego, {
+                "type": "note",
+                "status": "typing"});
+            update_note("");
+        },
+        function(note) {        // update
+            update_note(note);
+        },
+        function() {            // abort
+            capture.cur_note.deleteme();
+        });
+    document.body.appendChild(capture.$el);
+}
+
+ego.connect()
+
+var $textprogress = document.getElementById("textprogress")
+var $uploader = document.getElementById("uploader");
+$uploader.onchange = function(ev) {
+    if($uploader.files.length > 0) {
+	$textprogress.innerHTML = "UPLOADING";
+        for(var i=0; i<$uploader.files.length; i++) {
+            var file = $uploader.files[i];
+            var uid = ego.get(file.name) === undefined ? file.name : undefined;
+            var outgoing = new SuperModel(ego, {"_id": uid, "type": "pdf"});
+            outgoing.save(function() {
+                this.outgoing.put_file_attachment("upload.pdf", this.file, function(res) {
+                }, function(progress) {
+                    document.getElementById("progress").value = progress*100;
+                });
+            }.bind({outgoing: outgoing, file: file}));
+        }
+    }
+}
+
+</script>
+</body>
+</html>

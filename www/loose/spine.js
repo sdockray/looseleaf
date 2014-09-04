@@ -6,7 +6,7 @@ var fuW=700;
 var fuH=920;
 
 function idpath(id) {
-    return "db/" + id + "/";
+    return "db/_pdf_derivs/" + id + "/";
 }
 
 var LooseLine = function(texts) {
@@ -20,10 +20,9 @@ var LooseLine = function(texts) {
     this._loader = new ImageLoader();
 };
 LooseLine.prototype = new Line;
-LooseLine.prototype.render = function($can, px_start)  {
-    var ctx = $can.getContext("2d");
-    var start_page = Math.floor(this.px2time(px_start)); // XXX: allow starting out of phase?
-    var npages = Math.ceil($can.width / thW);
+LooseLine.prototype.render = function(ctx, args)  {
+    var start_page = Math.floor(this.px2time(args.px_start)); // XXX: allow starting out of phase?
+    var npages = Math.ceil(args.ctx_w / thW);
 
     for(var p=start_page; p<start_page+npages; p++) {
         var that = this;
@@ -203,7 +202,7 @@ LooseFocus.prototype.drawpage = function(p_num) {
 
     var bookpage = this.flow.line.getLeafAt(this.cur_line*this.pagesperline + p_num - 1);
     var $img = document.createElement("img");
-    $img.src = idpath(bookpage[0]._id) + "1024x-"+Math.floor(bookpage[1])+".jpg";
+    $img.src = idpath(bookpage[0]._id) + "x1024-"+Math.floor(bookpage[1])+".jpg";
     this.pages[p_num].appendChild($img);
 };
 
