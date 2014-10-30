@@ -7,8 +7,11 @@ git submodule init
 git submodule update
 
 sudo apt-get install ghostscript python-twisted-web python-couchdb
+(or)
+brew install ghostscript
+pip install -r requirements.txt
 ```
 
 ## usage
 
-python looseleaf.py DATABASE_DIR [FIRST_RUN_IMPORT_DIR]
+python looseleaf.py DATABASE_DIR

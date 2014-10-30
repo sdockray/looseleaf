@@ -123,4 +123,6 @@ if __name__=='__main__':
     WEB_SRC = "www/loose"
     dbdir  = sys.argv[1]
 
+    print "http://localhost:%d" % ( PORT )
+
     seatbelt.serve(dbdir, port=PORT, defaultdb="looseleaf", defaultddocs=WEB_SRC)
