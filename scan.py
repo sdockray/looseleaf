@@ -54,13 +54,13 @@ def do_scan(path):
 
     for idx, page in enumerate(info):
         # hi-res
-        outfile = os.path.join(outdir, "1024x-%d.jpg" % idx)
+        outfile = os.path.join(outdir, "x1024-%d.jpg" % idx)
         cmd = ["convert", 
                "-background", "white",
                "-alpha", "remove",
                "-alpha", "off",
                "-density", "150",
-               "-resize", "1024x",
+               "-resize", "x1024",
                "-quality", "75",
                page, outfile]
         subprocess.call(cmd)
