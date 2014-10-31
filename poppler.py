@@ -2,6 +2,8 @@
 # scale, &c
 
 #pdftocairo -png -scale-to-y 72 -scale-to-x -1 -cropbox -f 0 -l 5 PATH ROOT
+
+import glob
 import os
 import subprocess
 import tempfile
@@ -29,7 +31,11 @@ class Pdf:
         CMD = ['pdftocairo', '-%s' % (codec),
                '-scale-to-y', str(h),
                '-scale-to-x', '-1',
-               '-cropbox', '-f', str(start or 1), '-l', str(end or self.npages), self.path, os.path.join(outdir, 'p')]
+               '-cropbox', '-f', str(start or 0), '-l', str(end or self.npages), self.path, os.path.join(outdir, 'p')]
         #print "CMD", CMD
         subprocess.call(CMD)
-        return [os.path.join(outdir, "p-%03d.%s" % (idx, _c(codec))) for idx in range(start or 1, (end or self.npages) + 1)]
+        
+        # The output zero-padding is relative to the number of pages (!)
+        #outpattern = "p-%%0%dd.%s" % (int(math.log10(self.npages))+1, _c(codec))
+        #return [os.path.join(outdir, outpattern % (idx)) for idx in range((start or 0)+1, (end or self.npages) + 1)]
+        return sorted(glob.glob(os.path.join(outdir, '*')))

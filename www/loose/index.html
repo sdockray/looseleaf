@@ -159,8 +159,8 @@ $uploader.onchange = function(ev) {
 	$textprogress.innerHTML = "UPLOADING";
         for(var i=0; i<$uploader.files.length; i++) {
             var file = $uploader.files[i];
-            var uid = ego.get(file.name) === undefined ? file.name : undefined;
-            var outgoing = new SuperModel(ego, {"_id": uid, "type": "pdf"});
+            //var uid = ego.get(file.name) === undefined ? file.name : undefined;
+            var outgoing = new SuperModel(ego, {"type": "pdf"});
             outgoing.save(function() {
                 this.outgoing.put_file_attachment("upload.pdf", this.file, function(res) {
                 }, function(progress) {
