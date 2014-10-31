@@ -27,7 +27,7 @@ class PdfMosaic(cyst.Insist):
         self.H = H
         self.N_COLS = N_COLS
         self.pdf = pdf
-        cyst.Insist.__init__(self, os.path.join(cachedir, "50x72.jpg"))
+        cyst.Insist.__init__(self, os.path.join(cachedir, "%dx%d.jpg" % (W,H)))
 
     def serialize_computation(self, outpath):
         # Blank output image
@@ -35,7 +35,7 @@ class PdfMosaic(cyst.Insist):
                              min(self.N_COLS, self.pdf.npages) * self.W,
                              3), dtype=np.uint8)
 
-        for idx, fpath in enumerate(self.pdf.dump_to_height(h=self.H)):
+        for idx, fpath in enumerate(self.pdf.dump_to_height(h=self.H, codec="png")):
             arr = image2np(fpath)
             if arr.shape[1] > self.W:
                 # Crop horizontally
@@ -65,7 +65,9 @@ class PdfDerivatives(Resource):
 
         # Create lazy resources for derivatives
         mos_page = PdfMosaic(self.pdf, self.cacheroot)
+        gpu_mos_page = PdfMosaic(self.pdf, self.cacheroot, W=128, H=128, N_COLS=32)
         self.putChild("50x72.jpg", mos_page)
+        self.putChild("128x128.jpg", gpu_mos_page)
         for sz_name, h in [("small", 128), ("med", 1024), ("large", 2048)]:
             for p_no in range(self.pdf.npages):
                 pp = PdfPage(h, self.pdf, p_no, self.cacheroot)
