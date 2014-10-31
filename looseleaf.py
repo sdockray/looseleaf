@@ -1,5 +1,5 @@
 import cyst
-import gs
+import poppler
 
 from numm3 import image2np, np2image
 import seatbelt.seatbelt as seatbelt # ...internals
@@ -42,6 +42,10 @@ class PdfMosaic(cyst.Insist):
                 dw = arr.shape[1] - self.W
                 arr = arr[:,(dw/2):(dw/2)+self.W]
 
+            if arr.shape[0] > self.H:
+                # Crop y
+                arr = arr[:self.H]
+
             row = idx / self.N_COLS
             col = idx % self.N_COLS
 
@@ -52,7 +56,7 @@ class PdfMosaic(cyst.Insist):
 
 class PdfDerivatives(Resource):
     def __init__(self, pdfpath, cacheroot):
-        self.pdf = gs.Pdf(pdfpath)
+        self.pdf = poppler.Pdf(pdfpath)
         self.cacheroot = cacheroot
         if not os.path.exists(cacheroot):
             os.makedirs(cacheroot)

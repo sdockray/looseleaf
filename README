@@ -8,7 +8,8 @@ git submodule update
 
 sudo apt-get install ghostscript python-twisted-web python-couchdb
 (or)
-brew install ghostscript
+# brew install ghostscript
+brew install poppler
 pip install -r requirements.txt
 ```
 
