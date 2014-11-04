@@ -175,6 +175,8 @@ class PdfDerivatives(File):
             for p_no in range(self.pdf.npages):
                 pp = PdfPage(h, self.pdf, p_no, self.cacheroot)
                 self.putChild("x%d-%d.jpg" % (h, p_no), pp)
+                # For compatibility, though does not reflect size properly (ala imagemagick geometry)...
+                self.putChild("%dx-%d.jpg" % (h, p_no), pp)                
 
 class PdfDirectory(Resource):
     def __init__(self, pdfdir, cachedir):
