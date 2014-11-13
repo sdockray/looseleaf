@@ -15,6 +15,7 @@ from PIL import Image
 
 import glob
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -164,7 +165,7 @@ class PdfPage(Insist):
 
     def serialize_computation(self, outpath):
         fname = self.pdf.dump_to_height(h=self.H, start=self.pageno, end=self.pageno+1)[0]
-        os.rename(fname, outpath)
+        shutil.copy(fname, outpath)
 
 class PdfMosaic(Insist):
     def __init__(self, pdf, cachedir, W=50, H=72, N_COLS=20, start=None, end=None):
@@ -369,6 +370,7 @@ class PdfDirectory(Resource):
 
     def getChild(self, name, request):
         out = Resource.getChild(self, name, request)
+        print name
 
         if name and out.code == 404 and os.path.exists(os.path.join(self.pdfdir, name)):
             c = self.add_child(name)
