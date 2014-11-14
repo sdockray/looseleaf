@@ -146,9 +146,10 @@ class PdfClip(Insist):
         out = None
         for idx, fpath in enumerate(self.pdf.dump_to_width(w=self.W, codec="png", start=int(self.start), end=int(self.end)+1)):
             arr = image2np(fpath)
-            top = 0 if out is not None else arr.shape[1] * (self.start - int(self.start))
-            bot = arr.shape[1] if not idx == int(self.end) - int(self.start) else arr.shape[1] * (self.end - int(self.end))
-            if bot > top and arr.shape[1] > bot:
+            top = 0 if out is not None else arr.shape[0] * (self.start - int(self.start))
+            bot = arr.shape[0] if not idx == int(self.end) - int(self.start) else arr.shape[0] * (self.end - int(self.end))
+            
+            if bot > top and arr.shape[0] > bot:
                 arr = arr[:bot]
             if top > 0:
                 arr = arr[top:]
@@ -185,6 +186,7 @@ class PdfMosaic(Insist):
 
         for idx, fpath in enumerate(self.pdf.dump_to_height(h=self.H, codec="png", start=self.start, end=self.end)):
             arr = image2np(fpath)
+            
             if arr.shape[1] > self.W:
                 # Crop horizontally
                 dw = arr.shape[1] - self.W
@@ -197,7 +199,7 @@ class PdfMosaic(Insist):
             row = idx / self.N_COLS
             col = idx % self.N_COLS
 
-            out[row*self.H:(row+1)*self.H,
+            out[row*self.H:row*self.H + arr.shape[0],
                 col*self.W:col*self.W + arr.shape[1]] = arr
 
         np2image(out, outpath)
@@ -230,8 +232,8 @@ class PdfDerivatives(File):
         # clip: top-botxh, h optional
         clip_m = re.match('(\d+(\.\d+)?)-(\d+(\.\d+)?)(x(\d+))?\.jpg', name)
         if clip_m:
-            top, x, bot, xx, xxx, h = clip_m.groups()
-            c = PdfClip(self.pdf, float(top), float(bot), self.cacheroot)
+            top, x, bot, xx, xxx, w = clip_m.groups()
+            c = PdfClip(self.pdf, float(top), float(bot), self.cacheroot, W=int(w))
         
         self.putChild(name, c)
         return c 
