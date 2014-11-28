@@ -45,7 +45,7 @@ class Pdf:
         return sorted(glob.glob(os.path.join(outdir, '*')))
     def dump_to_pdf(self, start=None, end=None, outdir=None):
         outdir = outdir or tempfile.mkdtemp()  
-        subprocess.call(['pdfseparate', '-f', str((start or 0) + 1), '-l', str((end or start) + 1), self.path, os.path.join(outdir, 'f_%d.pdf')])
+        subprocess.call(['pdfseparate', '-f', str((start or 0) + 1), '-l', str((end or start) + 1), self.path, os.path.join(outdir, 'f_%04d.pdf')])
         return sorted(glob.glob(os.path.join(outdir, '*')))
 
 class Insist(Resource):
