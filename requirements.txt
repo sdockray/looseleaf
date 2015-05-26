@@ -2,3 +2,4 @@ autobahn[twisted,accelerate]
 couchdb
 twisted
 zope.interface
+numpy
