@@ -277,6 +277,13 @@ class PdfServer(object):
 		return serve_file(c.file(args[-1]))
 	
 
+# UWSGI application
+def application(environ, start_response):
+	cherrypy.config.update({
+		'server.socket_port': SERVER_PORT,
+	})
+	cherrypy.tree.mount(PdfServer(), '/')
+	return cherrypy.tree(environ, start_response)
 
 # Starting things up
 if __name__ == '__main__':
@@ -294,21 +301,13 @@ if __name__ == '__main__':
 		SERVER_PORT = int(config.get('config', 'port'))
 		SERVER_MODE = config.get('config', 'mode')		
 	except:
-		print "Create a config.ini file to set directories"
+		import sys
+		print "Create a config.ini file to set directories & port"
+		sys.exit()
 
-	if SERVER_MODE=='uwsgi':
-		cherrypy.config.update({
-			'engine.autoreload.on': False,
-			'server.socket_port': SERVER_PORT,
-		})
-		cherrypy.server.unsubscribe()
-		cherrypy.engine.start()
-		wsgiapp = cherrypy.tree.mount(PdfServer())
-
-	else:
-		conf = {}
-		cherrypy.config.update({
-			'server.socket_port': SERVER_PORT,
-		})
-		app = cherrypy.tree.mount(PdfServer(), '/')
-		cherrypy.quickstart(app,config=conf)
+	conf = {}
+	cherrypy.config.update({
+		'server.socket_port': SERVER_PORT,
+	})
+	app = cherrypy.tree.mount(PdfServer(), '/')
+	cherrypy.quickstart(app,config=conf)
