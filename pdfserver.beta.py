@@ -8,6 +8,7 @@ import mimetypes
 import hashlib
 import json
 import glob
+from ConfigParser import SafeConfigParser
 
 import cherrypy
 from cherrypy.lib.static import serve_file
@@ -279,12 +280,35 @@ class PdfServer(object):
 
 # Starting things up
 if __name__ == '__main__':
-	import sys
-	PDF_ROOT = sys.argv[1]
-	CACHE_DIR= sys.argv[2]
-	conf = {}
-	cherrypy.config.update({
-		'server.socket_port': 8484,
+	# Load config
+	config = SafeConfigParser({
+		'pdfroot':'/Users/dddd/Documents/dev/grrrr/uploads/processed',
+		'cachedir':'/Users/dddd/Documents/dev/grrrr/uploads/clips-cache',
+		'port': 8484,
+		'mode':'testing',
 	})
-	app = cherrypy.tree.mount(PdfServer(), '/')
-	cherrypy.quickstart(app,config=conf)
+	try:
+		config.read('config.ini')
+		PDF_ROOT = config.get('config', 'pdfroot')
+		CACHE_DIR = config.get('config', 'cachedir')
+		SERVER_PORT = int(config.get('config', 'port'))
+		SERVER_MODE = config.get('config', 'mode')		
+	except:
+		print "Create a config.ini file to set directories"
+
+	if SERVER_MODE=='uwsgi':
+		cherrypy.config.update({
+			'engine.autoreload.on': False,
+			'server.socket_port': SERVER_PORT,
+		})
+		cherrypy.server.unsubscribe()
+		cherrypy.engine.start()
+		wsgiapp = cherrypy.tree.mount(PdfServer())
+
+	else:
+		conf = {}
+		cherrypy.config.update({
+			'server.socket_port': SERVER_PORT,
+		})
+		app = cherrypy.tree.mount(PdfServer(), '/')
+		cherrypy.quickstart(app,config=conf)
