@@ -282,7 +282,7 @@ def application(environ, start_response):
 	cherrypy.config.update({
 		'server.socket_port': SERVER_PORT,
 	})
-	cherrypy.tree.mount(PdfServer(), '/')
+	cherrypy.tree.mount(PdfServer(), '/%s/' % SERVER_PATH)
 	return cherrypy.tree(environ, start_response)
 
 
@@ -292,13 +292,15 @@ config = SafeConfigParser({
 	'cachedir':'/Users/dddd/Documents/dev/grrrr/uploads/clips-cache',
 	'port': 8484,
 	'mode':'testing',
+	'path':'pages'
 })
 try:
 	config.read('config.ini')
 	PDF_ROOT = config.get('config', 'pdfroot')
 	CACHE_DIR = config.get('config', 'cachedir')
 	SERVER_PORT = int(config.get('config', 'port'))
-	SERVER_MODE = config.get('config', 'mode')		
+	SERVER_MODE = config.get('config', 'mode')	
+	SERVER_PATH = 	config.get('config', 'path')	
 except:
 	print "Create a config.ini file to set directories & port"
 
